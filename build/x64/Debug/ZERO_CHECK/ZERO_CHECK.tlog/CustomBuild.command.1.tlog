@@ -1,0 +1,10 @@
+^C:\USERS\GRANT\.MYCODE\GRANTAUDIOVISUALIZER\BUILD\CMAKEFILES\D93B350C5AF2F8B9BD77FA5994D6CADC\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/grant/.mycode/grantAudioVisualizer -BC:/Users/grant/.mycode/grantAudioVisualizer/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/grant/.mycode/grantAudioVisualizer/build/grantAudioVisualizer.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

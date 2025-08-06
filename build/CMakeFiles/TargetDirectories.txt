@@ -1,0 +1,3 @@
+C:/Users/grant/.mycode/grantAudioVisualizer/build/CMakeFiles/AudioVisualizer.dir
+C:/Users/grant/.mycode/grantAudioVisualizer/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/grant/.mycode/grantAudioVisualizer/build/CMakeFiles/ZERO_CHECK.dir
