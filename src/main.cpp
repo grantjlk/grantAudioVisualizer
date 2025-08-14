@@ -3,43 +3,7 @@
 #include <portaudio.h>
 #include <sndfile.h>
 #include <vector>
-
-class AudioLoader{
-    private:
-        std::vector<float> audioData;
-        SF_INFO sfInfo;
-
-    public:
-        AudioLoader();
-        bool loadAudioFile(const char* filename);
-
-        const std::vector<float>& getAudioData(){   return audioData;}
-        int getSampleRate() const { return sfInfo.samplerate; }
-        int getChannels() const { return sfInfo.channels; }
-        int getTotalFrames() const { return static_cast<int>(sfInfo.frames); }
-        double getDuration() const { return static_cast<double>(sfInfo.frames) / sfInfo.samplerate; }
-};
-    //needs to be set to 0
-AudioLoader::AudioLoader(){
-    sfInfo.format = 0;
-}
-
-bool AudioLoader::loadAudioFile(const char* filename ){
-    SNDFILE *infile = sf_open(filename, SFM_READ, &sfInfo);
-    //if file failed to open, return false
-    if(!infile) {
-        std::cerr << "Failed to open audio file: " << filename << "\n";
-        return false;
-    }
-    //resize audioData vec to fit all frames
-    audioData.resize(sfInfo.frames * sfInfo.channels);
-    //read frames into audio data
-    sf_readf_float(infile, audioData.data(), sfInfo.frames);
-    //close file
-    sf_close(infile);
-
-    return true;
-}
+#include "AudioLoader.h"
 
 // portaudio callback function, this gets called when audio needs to be played
 static int patestCallback( const void *inputBuffer, void *outputBuffer,

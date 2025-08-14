@@ -16,6 +16,7 @@ find_package(SndFile CONFIG REQUIRED)
 
 add_executable(AudioVisualizer 
     src/main.cpp
+    src/AudioLoader.cpp
 )
 
 target_include_directories(AudioVisualizer PRIVATE 
