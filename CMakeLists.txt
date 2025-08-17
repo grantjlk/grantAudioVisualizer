@@ -17,10 +17,12 @@ find_package(SndFile CONFIG REQUIRED)
 add_executable(AudioVisualizer 
     src/main.cpp
     src/AudioLoader.cpp
+    third_party/portaudio/pa_ringbuffer.c
 )
 
 target_include_directories(AudioVisualizer PRIVATE 
     include
+    third_party/portaudio
 )
 
 # Link libraries
