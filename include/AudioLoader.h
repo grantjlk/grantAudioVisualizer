@@ -13,7 +13,7 @@ class AudioLoader{
         AudioLoader();
         bool loadAudioFile(const char* filename);
 
-        const std::vector<float>& getAudioData(){   return audioData;}
+        const std::vector<float>& getAudioData() const { return audioData;}
         int getSampleRate() const { return sfInfo.samplerate; }
         int getChannels() const { return sfInfo.channels; }
         int getTotalFrames() const { return static_cast<int>(sfInfo.frames); }
