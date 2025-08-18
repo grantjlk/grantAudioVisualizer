@@ -4,6 +4,14 @@
 #include <sndfile.h>
 #include <vector>
 #include "AudioLoader.h"
+#include "AudioBuffer.h"
+/****************************
+ * AUDIO BUFFER AREA
+ ****************************/
+
+/****************************
+ * AUDIO BUFFER AREA
+ ****************************/
 
 // portaudio callback function, this gets called when audio needs to be played
 static int patestCallback( const void *inputBuffer, void *outputBuffer,

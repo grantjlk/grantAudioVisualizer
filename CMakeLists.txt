@@ -14,6 +14,11 @@ find_package(OpenGL REQUIRED)
 find_package(portaudio CONFIG REQUIRED)
 find_package(SndFile CONFIG REQUIRED)
 
+set_source_files_properties(
+    third_party/portaudio/pa_ringbuffer.c
+    PROPERTIES LANGUAGE C
+)
+
 add_executable(AudioVisualizer 
     src/main.cpp
     src/AudioLoader.cpp
