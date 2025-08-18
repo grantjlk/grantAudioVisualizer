@@ -17,6 +17,7 @@ find_package(SndFile CONFIG REQUIRED)
 add_executable(AudioVisualizer 
     src/main.cpp
     src/AudioLoader.cpp
+    src/AudioBuffer.cpp
     third_party/portaudio/pa_ringbuffer.c
 )
 
