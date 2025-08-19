@@ -5,13 +5,6 @@
 #include <vector>
 #include "AudioLoader.h"
 #include "AudioBuffer.h"
-/****************************
- * AUDIO BUFFER AREA
- ****************************/
-
-/****************************
- * AUDIO BUFFER AREA
- ****************************/
 
 // portaudio callback function, this gets called when audio needs to be played
 static int patestCallback( const void *inputBuffer, void *outputBuffer,
@@ -28,7 +21,27 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
 
 
 int main() {
+        // Load large song
     AudioLoader loader;
+    loader.loadAudioFile("../assets/delete.mp3");
+    std::cout << "Loaded " << loader.getAudioData().size() << " samples" << std::endl;
+    std::cout << "Duration: " << loader.getDuration() << " seconds" << std::endl;
+
+    AudioBuffer buffer(8192, loader); // Maybe use larger buffer for big songs
+
+    // Test filling and reading through chunks of the song
+    int totalSamplesProcessed = 0;
+    while(buffer.fillBuffer(1024)) {
+        float output[1024];
+        int read = buffer.readBuffer(output, 1024);
+        totalSamplesProcessed += read;
+        
+        if(totalSamplesProcessed % 44100 == 0) { // Print every second
+            std::cout << "Processed " << totalSamplesProcessed/44100 << " seconds" << std::endl;
+        }
+    }
+    return 0;
+    /*AudioLoader loader;
 
     if (loader.loadAudioFile("../assets/delete.mp3")) {
         std::cout << "Loaded file successfully.\n";
@@ -41,6 +54,7 @@ int main() {
         std::cout << "Failed to load file.\n";
     }
     return 0;
+    */
    // initialize GLFW
     if (!glfwInit()) {
         std::cerr << "GLFW failed to initialize\n";
