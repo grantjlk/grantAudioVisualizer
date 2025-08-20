@@ -5,41 +5,61 @@
 #include <vector>
 #include "AudioLoader.h"
 #include "AudioBuffer.h"
+#include "AudioOutput.h"
 
-// portaudio callback function, this gets called when audio needs to be played
-static int patestCallback( const void *inputBuffer, void *outputBuffer,
-                           unsigned long framesPerBuffer,
-                           const PaStreamCallbackTimeInfo* timeInfo,
-                           PaStreamCallbackFlags statusFlags,
-                           void *userData )
-{
-    float *out = (float*)outputBuffer;
-    // For now, we just return paContinue to keep the stream open
-    return paContinue;
-}
-
-
+#include <thread>
+#include <chrono>
 
 int main() {
-        // Load large song
+    // 1. Load audio file
     AudioLoader loader;
-    loader.loadAudioFile("../assets/delete.mp3");
-    std::cout << "Loaded " << loader.getAudioData().size() << " samples" << std::endl;
-    std::cout << "Duration: " << loader.getDuration() << " seconds" << std::endl;
-
-    AudioBuffer buffer(8192, loader); // Maybe use larger buffer for big songs
-
-    // Test filling and reading through chunks of the song
-    int totalSamplesProcessed = 0;
-    while(buffer.fillBuffer(1024)) {
-        float output[1024];
-        int read = buffer.readBuffer(output, 1024);
-        totalSamplesProcessed += read;
-        
-        if(totalSamplesProcessed % 44100 == 0) { // Print every second
-            std::cout << "Processed " << totalSamplesProcessed/44100 << " seconds" << std::endl;
-        }
+    if (!loader.loadAudioFile("../assets/delete.mp3")) {
+        std::cerr << "Error: Could not load test.wav\n";
+        return 1;
     }
+
+    std::cout << "Loaded file: "
+              << loader.getSampleRate() << " Hz, "
+              << loader.getChannels() << " channels, "
+              << loader.getDuration() << " seconds\n";
+
+    // 2. Create buffer
+    const int bufferSize = 8192; // samples
+    AudioBuffer buffer(bufferSize, loader);
+
+    // 3. Pre-fill buffer before starting playback
+    while (buffer.fillBuffer(bufferSize / 2)) {
+        if (buffer.getAvailableReadSamples() >= bufferSize / 2) break;
+    }
+
+    // 4. Create audio output
+    AudioOutput output(&buffer, loader.getSampleRate(), loader.getChannels());
+
+    // 5. Start playback
+    if (!output.start()) {
+        std::cerr << "Error: Could not start audio output\n";
+        return 1;
+    }
+
+    std::cout << "Playing audio...\n";
+
+    // 6. Keep filling buffer while audio plays
+    while (output.isActive()) {
+        if (!buffer.fillBuffer(bufferSize / 2)) {
+            // No more data to load, let playback finish
+            std::cout << "End of file reached, waiting for playback to finish...\n";
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
+    // 7. Wait until stream finishes naturally
+    while (output.isActive()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    output.stop();
+    std::cout << "Playback finished.\n";
     return 0;
     /*AudioLoader loader;
 
