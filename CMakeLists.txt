@@ -39,5 +39,5 @@ target_link_libraries(AudioVisualizer
     OpenGL::GL
     portaudio
     SndFile::sndfile
-    FFTW3::fftw3f
+    FFTW3::fftw3
 )
