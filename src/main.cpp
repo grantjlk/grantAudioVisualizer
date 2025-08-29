@@ -6,14 +6,13 @@
 #include "AudioLoader.h"
 #include "AudioBuffer.h"
 #include "AudioOutput.h"
-
+#include <cmath>
 #include <thread>
 #include <chrono>
 
 #include <fftw3.h>
 
 int main() {
-    
     // 1. Load audio file
     AudioLoader loader;
     if (!loader.loadAudioFile("../assets/delete.mp3")) {
