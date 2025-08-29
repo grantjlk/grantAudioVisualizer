@@ -36,6 +36,8 @@ class AudioBuffer{
 		bool fillBuffer(int samplesToWrite);
 		//read data for portaudio callback or analyzer
 		int readBuffer(float* output, int frameCount);
+		//peek to see data without destroying it
+		int peekBuffer(float* output, int frameCount);
 		//check available data
 		int getAvailableReadSamples() const;
 		//return if ringbuffer has data or not
