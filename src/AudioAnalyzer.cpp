@@ -10,7 +10,7 @@
 class AudioAnalyzer{
 	private:
 		AudioBuffer* audioBuffer;
-
+		int sampleRate;
 		//FFT setup
 		int fftSize;
 		float* fftInput;
@@ -20,27 +20,35 @@ class AudioAnalyzer{
 		//hann window function so its smoother
 		std::vector<float> windowFunction;
 
-		//analysis results(fft bins for freqs, rms val, peakamplitude val)
+		//analysis results(fft bins for freqs, rms val(loudness), peakamplitude val)
 		std::vector<float> magnitudeSpectrum;
-		//maybe add a different bucket size? based on freqs in magnitude spectrum? often on a logarithmic scale
+		std::vector<float> visualizationBuckets;
 		float rmsVal;
 		float peakAmplitude;
 
 		void _computeWindowFunction();
-		void _applyWindowFunction();
+		void _applyWindowFunction();	
+		void _computeRmsAndPeak();
+		void _convertOutputToMagnitudes();
+			//maybe add an int?
+		void _computeVisualizationBuckets();
+
 	public:
 		//constructor & destructor
 		//constructor creates a plan, sets audio buffer
-		AudioAnalyzer(AudioBuffer* buffer, int fftSize);
+		AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate);
 		~AudioAnalyzer();
 
 		//perform one analysis step
 		bool analyzeNextBlock();
 
 		//get analysis results
+		//maybe remove getspectrum?
 		const std::vector<float>& getSpectrum() const {return magnitudeSpectrum;}
+		const std::vector<float>& getBuckets() const {return visualizationBuckets;}
 		float getRmsVal() const {return rmsVal;};
 		float getPeakAmplitude() const {return peakAmplitude;};
+
 
 		//disable copying/ assignment operator
 		AudioAnalyzer(const AudioAnalyzer&) = delete;
@@ -48,7 +56,7 @@ class AudioAnalyzer{
 
 };
 
-AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize) : audioBuffer(buffer), fftSize(fftSize), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
+AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate) : audioBuffer(buffer), fftSize(fftSize), sampleRate(sampleRate),fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
 	//allocate fftw arrays
 	fftInput = fftwf_alloc_real(fftSize);
 		//2.3 fftw docs
@@ -68,7 +76,7 @@ AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize) : audioBuffer(buf
     }
 
 	//initialize magnitude vector 
-	windowFunction.resize(fftSize / 2 + 1);
+	magnitudeSpectrum.resize(fftSize / 2 + 1);
 	// then compute Hanning function
 	_computeWindowFunction();
 
@@ -86,12 +94,37 @@ AudioAnalyzer::~AudioAnalyzer(){
 		fftwf_free(fftOutput);
 	}
 }
-
+//TODO:
+//IMPLEMENT ANALYZE NEXT BLCOK, return true if next block successfully analyzed, false if no
+//apply windowing function, execute fft plan, convert output to magnitudes, possibly move these into buckets, based on logarithmic scale?
+//calculate rmsval and peakamplitude
 bool AudioAnalyzer::analyzeNextBlock(){
+	//if any of these things don't exist, return false
+	if(!fftInput || !fftOutput || !plan ){
+		return false;
+	}
+
+	int samplesRead = audioBuffer->readBuffer(fftInput, fftSize);
+	//if not enough samples read, return false
+	if(samplesRead < fftSize){
+		return false;
+	}
+	//compute rms and peak amplitude on data
+	_computeRmsAndPeak();
+	//apply window function for fft
+	_applyWindowFunction();
+	//execute plan
+	fftwf_execute(plan);
+	//convert fft data to magnitudes
+	_convertOutputToMagnitudes();
+	//convert magnitudes to buckets?
+	_computeVisualizationBuckets();
+
 	return true;
 } 
 
 void AudioAnalyzer::_computeWindowFunction(){
+	windowFunction.resize(fftSize);
 	for (int i = 0; i < fftSize; i++) {
     	windowFunction[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (fftSize - 1)));
 	}
@@ -99,6 +132,39 @@ void AudioAnalyzer::_computeWindowFunction(){
 
 void AudioAnalyzer::_applyWindowFunction(){
 	for(int i = 0; i < fftSize; i++){
-		magnitudeSpectrum[i] *= windowFunction[i];
+		fftInput[i] *= windowFunction[i];
 	}
+}
+
+void AudioAnalyzer::_computeRmsAndPeak(){
+	float sumSquares = 0.0f;
+	float peak = 0.0f;
+
+	for(int i = 0; i < fftSize; i++){
+		float sample = fftInput[i];
+
+		sumSquares += sample * sample;
+
+		if(fabsf(sample) > peak){
+			peak = fabsf(sample);
+		}
+	}
+	rmsVal = sqrtf(sumSquares / fftSize);
+	peakAmplitude = peak;
+}
+	//to get magnitude of a fft, take the sqrt(real*real + imag*imag)
+	//then normalize by num of samples (fftSize)
+void AudioAnalyzer::_convertOutputToMagnitudes(){
+	int numBins = fftSize / 2 + 1;
+
+	for(int i = 0; i < numBins; i++){
+		float real = fftOutput[i][0];
+		float imag = fftOutput[i][1];
+		//also normalize
+		magnitudeSpectrum[i] = sqrtf(real * real + imag * imag) * (1.0f / fftSize);
+	}
+}
+//20hz to 16000hz
+void AudioAnalyzer::_computeVisualizationBuckets(){
+
 }

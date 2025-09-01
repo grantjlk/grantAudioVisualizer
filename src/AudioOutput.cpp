@@ -49,8 +49,8 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	//turning userdata back into audioOutput* (c style callback)
 	AudioOutput* self = static_cast<AudioOutput*>(userData);
 	float* out = static_cast<float*>(outputBuffer);
-	
-	int samplesRead = self->audioBuffer->readBuffer(out, framesPerBuffer * self->channels);
+				//CHANGED to peekbuffer, if problems change back
+	int samplesRead = self->audioBuffer->peekBuffer(out, framesPerBuffer * self->channels);
 	
 	//if we didn't get enough samples, fill the rest with silence
 	for(int i = samplesRead; i < framesPerBuffer * self->channels; i++){

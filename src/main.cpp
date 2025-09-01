@@ -13,6 +13,7 @@
 #include <fftw3.h>
 
 int main() {
+    
     // 1. Load audio file
     AudioLoader loader;
     if (!loader.loadAudioFile("../assets/delete.mp3")) {
@@ -63,20 +64,21 @@ int main() {
     output.stop();
     std::cout << "Playback finished.\n";
     return 0;
-    /*AudioLoader loader;
+    //testing just loader
+    AudioLoader loader1;
 
-    if (loader.loadAudioFile("../assets/delete.mp3")) {
+    if (loader1.loadAudioFile("../assets/testaudio.mp3")) {
         std::cout << "Loaded file successfully.\n";
-        std::cout << "Sample rate: " << loader.getSampleRate() << "\n";
-        std::cout << "Channels: " << loader.getChannels() << "\n";
-        std::cout << "Frames: " << loader.getTotalFrames() << "\n";
-        std::cout << "Duration: " << loader.getDuration() << " seconds\n";
-        std::cout << "First sample value: " << loader.getAudioData()[0] << "\n";
+        std::cout << "Sample rate: " << loader1.getSampleRate() << "\n";
+        std::cout << "Channels: " << loader1.getChannels() << "\n";
+        std::cout << "Frames: " << loader1.getTotalFrames() << "\n";
+        std::cout << "Duration: " << loader1.getDuration() << " seconds\n";
+        std::cout << "First sample value: " << loader1.getAudioData()[0] << "\n";
     } else {
         std::cout << "Failed to load file.\n";
     }
     return 0;
-    */
+    
    // initialize GLFW
     if (!glfwInit()) {
         std::cerr << "GLFW failed to initialize\n";
