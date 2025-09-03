@@ -10,7 +10,11 @@
 class AudioAnalyzer{
 	private:
 		AudioBuffer* audioBuffer;
+
 		int sampleRate;
+		int numBuckets;
+		float lowFreq;
+		float highFreq;
 		//FFT setup
 		int fftSize;
 		float* fftInput;
@@ -22,6 +26,7 @@ class AudioAnalyzer{
 
 		//analysis results(fft bins for freqs, rms val(loudness), peakamplitude val)
 		std::vector<float> magnitudeSpectrum;
+		std::vector<std::pair<int, int>> bucketRanges;
 		std::vector<float> visualizationBuckets;
 		float rmsVal;
 		float peakAmplitude;
@@ -30,13 +35,12 @@ class AudioAnalyzer{
 		void _applyWindowFunction();	
 		void _computeRmsAndPeak();
 		void _convertOutputToMagnitudes();
-			//maybe add an int?
-		void _computeVisualizationBuckets();
+		void _setupBuckets();
+		void _computeBuckets();
 
 	public:
 		//constructor & destructor
-		//constructor creates a plan, sets audio buffer
-		AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate);
+		AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets = 32, float lowFreq = 20.0f, float highFreq = 16000.0f);
 		~AudioAnalyzer();
 
 		//perform one analysis step
@@ -56,7 +60,7 @@ class AudioAnalyzer{
 
 };
 
-AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate) : audioBuffer(buffer), fftSize(fftSize), sampleRate(sampleRate),fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
+AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : audioBuffer(buffer), fftSize(fftSize), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
 	//allocate fftw arrays
 	fftInput = fftwf_alloc_real(fftSize);
 		//2.3 fftw docs
@@ -79,7 +83,8 @@ AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate) :
 	magnitudeSpectrum.resize(fftSize / 2 + 1);
 	// then compute Hanning function
 	_computeWindowFunction();
-
+	// and setup bucket ranges
+	_setupBuckets();
 
 }
 
@@ -94,7 +99,6 @@ AudioAnalyzer::~AudioAnalyzer(){
 		fftwf_free(fftOutput);
 	}
 }
-//TODO:
 //IMPLEMENT ANALYZE NEXT BLCOK, return true if next block successfully analyzed, false if no
 //apply windowing function, execute fft plan, convert output to magnitudes, possibly move these into buckets, based on logarithmic scale?
 //calculate rmsval and peakamplitude
@@ -117,8 +121,8 @@ bool AudioAnalyzer::analyzeNextBlock(){
 	fftwf_execute(plan);
 	//convert fft data to magnitudes
 	_convertOutputToMagnitudes();
-	//convert magnitudes to buckets?
-	_computeVisualizationBuckets();
+	//convert magnitudes to 32 buckets for visualization
+	_computeBuckets();
 
 	return true;
 } 
@@ -164,7 +168,14 @@ void AudioAnalyzer::_convertOutputToMagnitudes(){
 		magnitudeSpectrum[i] = sqrtf(real * real + imag * imag) * (1.0f / fftSize);
 	}
 }
+	//FIXME  : complete setup buckets and compute buckets, I think I'll hardcode setup?
+	//currently hardcoded for 32 buckets and 20hz to 16000hz, 44100hz sample rate, 1024fft 
+	//possibly edit it so I can switch it up, in the future
+void AudioAnalyzer::_setupBuckets(){
+	//hardcoded using logarithmic scaling
+	bucketRanges = {{0,0},{0,0},{0,0},{0,1},{1,1},{1,1},{1,1},{1,2},{2,3},{3,3},{3,4},{4,5},{5,7},{7,8},{8,10},{10,13},{13,16},{16,19},{19,24},{24,30},{30,37},{37,45},{45,56},{56,69},{69,86},{86,106},{106,130},{130,161},{161,198},{198,244},{244,301},{301,371}};
+}
 //20hz to 16000hz
-void AudioAnalyzer::_computeVisualizationBuckets(){
+void AudioAnalyzer::_computeBuckets(){
 
 }
