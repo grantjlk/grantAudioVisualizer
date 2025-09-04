@@ -172,10 +172,25 @@ void AudioAnalyzer::_convertOutputToMagnitudes(){
 	//currently hardcoded for 32 buckets and 20hz to 16000hz, 44100hz sample rate, 1024fft 
 	//possibly edit it so I can switch it up, in the future
 void AudioAnalyzer::_setupBuckets(){
+	numBuckets = 32;
 	//hardcoded using logarithmic scaling
 	bucketRanges = {{0,0},{0,0},{0,0},{0,1},{1,1},{1,1},{1,1},{1,2},{2,3},{3,3},{3,4},{4,5},{5,7},{7,8},{8,10},{10,13},{13,16},{16,19},{19,24},{24,30},{30,37},{37,45},{45,56},{56,69},{69,86},{86,106},{106,130},{130,161},{161,198},{198,244},{244,301},{301,371}};
+
+	visualizationBuckets.resize(numBuckets);
 }
 //20hz to 16000hz
 void AudioAnalyzer::_computeBuckets(){
+	//loop through and compute average in each range of bins then put that average into corresponding bucket
+	for(int i = 0; i < numBuckets; i ++){
+		float sum = 0.0f;
+		int startBin = bucketRanges[i].first;
+		int endBin = bucketRanges[i].second;
 
+		for(int j = startBin; j <= endBin; j++){
+			sum += magnitudeSpectrum[j];
+		}
+		//then make the corresponding bucket the avg(possibly divide by two for true avg?)
+		int binCount = endBin - startBin + 1;
+		visualizationBuckets[i] = sum / binCount;
+	}
 }
