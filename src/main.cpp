@@ -47,26 +47,37 @@ int main() {
 
     std::cout << "Playing audio...\n";
 
-    // 6. Keep filling buffer while audio plays
+        // 6. Keep filling buffer while audio plays
+    bool fileEnded = false;
+
     while (output.isActive()) {
-        if (!buffer.fillBuffer(bufferSize / 2)) {
-            // No more data to load, let playback finish
-            std::cout << "End of file reached, waiting for playback to finish...\n";
+        if (!fileEnded) {
+            if (!buffer.fillBuffer(bufferSize / 2)) {
+                // No more data left to load from file
+                std::cout << "End of file reached, waiting for buffer to drain...\n";
+                fileEnded = true;
+            }
+        }
+
+        // Run analyzer if you want
+        if (analyzer.analyzeNextBlock()) {
+            std::cout << "RMS: " << analyzer.getRmsVal()
+                    << "  Peak: " << analyzer.getPeakAmplitude()
+                    << "\nBuckets: ";
+            for (float b : analyzer.getBuckets()) {
+                std::cout << b << " ";
+            }
+            std::cout << "\n";
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+        // If file is ended AND buffer is drained, stop playback
+        if (fileEnded && buffer.getAvailableReadSamples() == 0) {
+            std::cout << "Playback finished.\n";
+            output.stop();
             break;
         }
-        // Run analyzer on the current buffer contents
-        std::cout << "Available: " << buffer.getAvailableReadSamples() << "\n";
-        if (analyzer.analyzeNextBlock()) {
-            // You can now read analyzer.getBuckets(), getRms(), getPeak(), etc.
-            std::cout << "RMS: " << analyzer.getRmsVal()
-                    << "  Peak: " << analyzer.getPeakAmplitude() 
-                    << "\nBuckets: ";
-                for (float b : analyzer.getBuckets()) {
-                    std::cout << b << " ";
-                }
-                std::cout << "\n";
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
     // 7. Wait until stream finishes naturally
