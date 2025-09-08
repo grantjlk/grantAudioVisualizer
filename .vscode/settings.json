@@ -1,6 +1,11 @@
 {
 	"files.associations": {
 		"vector": "cpp",
-		"algorithm": "cpp"
+		"algorithm": "cpp",
+		"initializer_list": "cpp",
+		"type_traits": "cpp",
+		"xstring": "cpp",
+		"xtree": "cpp",
+		"xutility": "cpp"
 	}
 }

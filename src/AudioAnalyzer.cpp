@@ -47,8 +47,8 @@ bool AudioAnalyzer::analyzeNextBlock(){
 	if(!fftInput || !fftOutput || !plan ){
 		return false;
 	}
-
-	int samplesRead = audioBuffer->readBuffer(fftInput, fftSize);
+		//CHANGED TO peekbuffer
+	int samplesRead = audioBuffer->peekBuffer(fftInput, fftSize);
 	//if not enough samples read, return false
 	if(samplesRead < fftSize){
 		return false;

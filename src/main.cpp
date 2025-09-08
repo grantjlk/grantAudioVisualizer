@@ -6,6 +6,7 @@
 #include "AudioLoader.h"
 #include "AudioBuffer.h"
 #include "AudioOutput.h"
+#include "AudioAnalyzer.h"
 #include <cmath>
 #include <thread>
 #include <chrono>
@@ -35,9 +36,9 @@ int main() {
         if (buffer.getAvailableReadSamples() >= bufferSize / 2) break;
     }
 
-    // 4. Create audio output
+    // 4. Create audio output and audio analyzer
     AudioOutput output(&buffer, loader.getSampleRate(), loader.getChannels());
-
+    AudioAnalyzer analyzer(&buffer, 1024, loader.getSampleRate());
     // 5. Start playback
     if (!output.start()) {
         std::cerr << "Error: Could not start audio output\n";
@@ -53,7 +54,19 @@ int main() {
             std::cout << "End of file reached, waiting for playback to finish...\n";
             break;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        // Run analyzer on the current buffer contents
+        std::cout << "Available: " << buffer.getAvailableReadSamples() << "\n";
+        if (analyzer.analyzeNextBlock()) {
+            // You can now read analyzer.getBuckets(), getRms(), getPeak(), etc.
+            std::cout << "RMS: " << analyzer.getRmsVal()
+                    << "  Peak: " << analyzer.getPeakAmplitude() 
+                    << "\nBuckets: ";
+                for (float b : analyzer.getBuckets()) {
+                    std::cout << b << " ";
+                }
+                std::cout << "\n";
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
     // 7. Wait until stream finishes naturally

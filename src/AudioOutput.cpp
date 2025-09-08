@@ -49,15 +49,19 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	//turning userdata back into audioOutput* (c style callback)
 	AudioOutput* self = static_cast<AudioOutput*>(userData);
 	float* out = static_cast<float*>(outputBuffer);
-				//CHANGED to peekbuffer, if problems change back
-	int samplesRead = self->audioBuffer->peekBuffer(out, framesPerBuffer * self->channels);
+				//CHANGED back to readbuffer
+	int samplesRead = self->audioBuffer->readBuffer(out, framesPerBuffer * self->channels);
 	
 	//if we didn't get enough samples, fill the rest with silence
 	for(int i = samplesRead; i < framesPerBuffer * self->channels; i++){
 		out[i] = 0.0f;
 	}
 		//return paContinue if we read frames, and paComplete if it's the end
-	return (samplesRead > 0) ? paContinue : paComplete;
+		//instead of stopping when we don't read frames
+		//return pacontinue and continue if there are frames left to read 
+		//return pacomplete if there are no more frames to read and we have exhausted the buffer
+		//or deal with pacomplete outside of class, in main loop
+	return paContinue;
 }
 
 	//starts the audio output, returns true if it worked, false if not
@@ -87,3 +91,4 @@ bool AudioOutput::isActive() const{
 	if (!stream) return false;
 	return Pa_IsStreamActive(stream) == 1;
 }
+
