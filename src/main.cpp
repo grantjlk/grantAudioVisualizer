@@ -17,7 +17,7 @@ int main() {
     
     // 1. Load audio file
     AudioLoader loader;
-    if (!loader.loadAudioFile("../assets/testaudio.mp3")) {
+    if (!loader.loadAudioFile("../assets/delete.mp3")) {
         std::cerr << "Error: Could not load test.wav\n";
         return 1;
     }

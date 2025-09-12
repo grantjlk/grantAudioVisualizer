@@ -1,23 +1,26 @@
 #include "AudioLoader.h"
 #include <iostream>
-    
+
+// Constructor initializes sfInfo.format to 0, as required by libsndfile
 AudioLoader::AudioLoader(){
-    //needs to be set to 0
     sfInfo.format = 0;
 }
 
+// libsndfile is used to load audio file into memory
 bool AudioLoader::loadAudioFile(const char* filename ){
+    // Open audio file for reading
     SNDFILE *infile = sf_open(filename, SFM_READ, &sfInfo);
-    //if file failed to open, return false
+    // Check if opening the file failed
     if(!infile) {
         std::cerr << "Failed to open audio file: " << filename << "\n";
         return false;
     }
-    //resize audioData vec to fit all frames
+
+    // Resize audioData vector to fit all frames
     audioData.resize(sfInfo.frames * sfInfo.channels);
-    //read frames into audio data
+    // Read audio data as float samples into the vector 
     sf_readf_float(infile, audioData.data(), sfInfo.frames);
-    //close file
+    // Close audio file
     sf_close(infile);
 
     return true;
