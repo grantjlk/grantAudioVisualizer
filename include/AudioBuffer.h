@@ -8,41 +8,54 @@
 #include "pa_ringbuffer.h"
 
 /**
-* AudioBuffer - Thread-safe audio data buffer using PortAudio's ring buffer
-* 
-* This class wraps PortAudio's PaUtilRingBuffer to provide a thread-safe way to
-* transfer audio data between threads. It reads chunks from loaded audio file data
-* and makes it available through a ring buffer interface.
-* 
-* Typical usage:
-* - Main thread calls fillBuffer() to load data from AudioLoader into ring buffer
-* - PortAudio callback thread calls readBuffer() to get data for audio output
-* - Audio analyzer can also call readBuffer() to get data for FFT/visualization
+* @class AudioBuffer 
+* @brief Thread-safe audio data buffer using PortAudio's ring buffer
+*
+* Wraps PortAudio's PaUtilRingBuffer to provide thread-safe transfer of audio data between threads.
 */
-
 class AudioBuffer{
 	private:
-		const std::vector<float>* audioData;
-		size_t sourcePosition;
-		float* bufferData;
-		PaUtilRingBuffer ringBuffer;
+		const std::vector<float>* audioData;	// Pointer to audio data loaded from AudioLoader
+		size_t sourcePosition;					// Current read position in audio data
+		float* bufferData;						// Memory used for ring buffer storage
+		PaUtilRingBuffer ringBuffer;			
 		
 	public:
-		//constructor
+		/// @brief Construct an AudioBuffer with given size and loader for the audio source
+		/// @param bufferSizeInSamples Size of buffer in samples
+		/// @param loader AudioLoader containing data to fill the buffer
 		AudioBuffer(int bufferSizeInSamples, const AudioLoader& loader);
-		//destructor
+
+		/// @brief Destructor deallocates buffer memory
 		~AudioBuffer();
-		//fill ring buffer from file data
+
+
+		/// @brief Fill the buffer with audio samples from the source data, typically called by main thread to keep buffer filled during audio playback
+		/// @param samplesToWrite Number of samples to attempt writing into the ring buffer
+		/// @return False if the end of the source file has been reached, true otherwise
 		bool fillBuffer(int samplesToWrite);
-		//read data for portaudio callback or analyzer
+
+		/// @brief Read samples from the ring buffer (destructive read), used directly inside of AudioOutput for audio stream
+		/// @param output Destination array to store samples
+		/// @param frameCount Number of samples requested
+		/// @return Number of samples actually read
 		int readBuffer(float* output, int frameCount);
-		//peek to see data without destroying it
+
+		/// @brief Peek at samples from the ring buffer, without removing, used in AudioAnalyzer to analyze at the same time AudioOutput reads
+		/// @param output Destination array to copy samples
+		/// @param frameCount Number of samples to peek
+		/// @return Number of samples successfully copied
 		int peekBuffer(float* output, int frameCount);
-		//check available data
+
+		/// @brief Gets samples available to read in buffer, useful to check buffer status
+		/// @return Number of readable samples
 		int getAvailableReadSamples() const;
-		//return if ringbuffer has data or not
+
+		//maybe remove? I don't utilize this rn
 		bool hasData() const;
-		//disable copy constructor and assignment operator, doesn't make sense with this
+
+
+		// Disable copy constructor and assignment operator(buffer memory is unique per instance)
     	AudioBuffer(const AudioBuffer&) = delete;
     	AudioBuffer& operator=(const AudioBuffer&) = delete;
 };

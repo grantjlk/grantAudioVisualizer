@@ -1,44 +1,46 @@
 #include "AudioBuffer.h"
 
+// Constructor initializes ring buffer and sets source position to start
 AudioBuffer::AudioBuffer(int bufferSizeInSamples, const AudioLoader& loader){
 	audioData = &loader.getAudioData();
 	sourcePosition = 0;
-	bufferData = new float[bufferSizeInSamples];
+	bufferData = new float[bufferSizeInSamples]; 	//allocates ring buffer storage
 	PaUtil_InitializeRingBuffer(&ringBuffer, sizeof(float), bufferSizeInSamples, bufferData);
 }
 
+// Destructor frees ring buffer memory
 AudioBuffer::~AudioBuffer(){
 	delete[] bufferData;
 }
 
 bool AudioBuffer::fillBuffer(int samplesToWrite){
 	
-	//check if we reached end of audio file
+	// Stop if we reach the end of the audio
 	if(sourcePosition >= audioData->size()){
 		return false;
 	}
 	
-	
-	//calculate freespace left
+	// Check available space in the buffer
 	int freeSpace = PaUtil_GetRingBufferWriteAvailable(&ringBuffer);
-	//calculate how much data is left
+	// Calculate how much data is left
 	int availableData = static_cast<int>(audioData->size() - sourcePosition);
-	// check how much we can actually write
+	// Determine how many samples we can actually write
 	int actualSamples = std::min({samplesToWrite, availableData, freeSpace});
 
-	//write data to ring buffer
+	// Write samples from audioData into ring buffer
 	int written = PaUtil_WriteRingBuffer(&ringBuffer, audioData->data() + sourcePosition, actualSamples);
-	//move position forward by what we wrote
+	// Advance read pointer in source audio
 	sourcePosition += written;
-	//return false if we've reached the end, true if more data remains
+	// Return false if we've reached the end, true if more data remains
 	return sourcePosition < audioData->size();
 }
+
 
 int AudioBuffer::readBuffer(float* output, int frameCount){
 	return PaUtil_ReadRingBuffer(&ringBuffer, output, frameCount);
 }
 
-//possibly add offset parameter?
+// Copies current buffer as a temp buffer and reads from it to peek without destroying
 int AudioBuffer::peekBuffer(float* output, int frameCount){
 	PaUtilRingBuffer tempBuffer = ringBuffer;
 	return PaUtil_ReadRingBuffer(&tempBuffer, output, frameCount);
