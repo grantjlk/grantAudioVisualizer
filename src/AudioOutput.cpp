@@ -1,6 +1,6 @@
 #include "AudioOutput.h"
 
-//Constructor
+// Constructor
 AudioOutput::AudioOutput(AudioBuffer* buffer, int sampleRate, int channels) 
 						: stream(nullptr), audioBuffer(buffer), sampleRate(sampleRate), channels(channels)
 {
@@ -26,7 +26,7 @@ AudioOutput::AudioOutput(AudioBuffer* buffer, int sampleRate, int channels)
 
 }
 
-//destructor, stops and closes stream, then shuts down portaudio.
+// Destructor, stops and closes stream, then shuts down portaudio.
 AudioOutput::~AudioOutput(){
 	if(stream){
 		Pa_StopStream(stream);

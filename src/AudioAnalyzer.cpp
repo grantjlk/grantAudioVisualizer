@@ -1,33 +1,35 @@
 #include "AudioAnalyzer.h"
 
+// Constructor 
 AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : audioBuffer(buffer), fftSize(fftSize), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
-	//allocate fftw arrays
+	// Allocate fftw arrays for real to complex transform
 	fftInput = fftwf_alloc_real(fftSize);
-		//2.3 fftw docs
 	fftOutput = fftwf_alloc_complex(fftSize / 2 + 1);
-	//check they're allocated
+
+	// Check memory allocation succeeded
 	if (!fftInput || !fftOutput) {
         std::cout << "Failed to allocate FFTW arrays" << std::endl;
         return;
     }
 
-	//create plan, with measure as it will be running the same sized routine many times
+	// Create FFTW execution plan using FFTW_MEASURE for optimal performance (creates fastest possible plan for repeated use, but takes longer for setup)
 	plan = fftwf_plan_dft_r2c_1d(fftSize, fftInput, fftOutput, FFTW_MEASURE);
-	//check if worked
+	// Verify plan creation succeeded
 	if(!plan){
         std::cout << "Failed to create fftwfplan" << std::endl;
         return;
     }
 
-	//initialize magnitude vector 
+	// Initialize magnitude spectrum vector to hold FFT output magnitudes
 	magnitudeSpectrum.resize(fftSize / 2 + 1);
-	// then compute Hanning function
+	// Precompute Hanning window function
 	_computeWindowFunction();
-	// and setup bucket ranges
+	// Setup log-based bucket ranges for visualizationBuckets
 	_setupBuckets();
 
 }
 
+// Destructor, frees FFTW resources
 AudioAnalyzer::~AudioAnalyzer(){
 	if(plan){
 		fftwf_destroy_plan(plan);
@@ -39,34 +41,34 @@ AudioAnalyzer::~AudioAnalyzer(){
 		fftwf_free(fftOutput);
 	}
 }
-//IMPLEMENT ANALYZE NEXT BLCOK, return true if next block successfully analyzed, false if no
-//apply windowing function, execute fft plan, convert output to magnitudes, possibly move these into buckets, based on logarithmic scale?
-//calculate rmsval and peakamplitude
+
+// Analyzes the next block of audio data from the buffer
+// True if successful, false if not
 bool AudioAnalyzer::analyzeNextBlock(){
-	//if any of these things don't exist, return false
 	if(!fftInput || !fftOutput || !plan ){
 		return false;
 	}
-		//CHANGED TO peekbuffer
+	// Peek samples from buffer (non destructive)
 	int samplesRead = audioBuffer->peekBuffer(fftInput, fftSize);
-	//if not enough samples read, return false
+	// Make sure enough samples were read
 	if(samplesRead < fftSize){
 		return false;
 	}
-	//compute rms and peak amplitude on data
+	// Compute RMS and peak amplitude on raw data
 	_computeRmsAndPeak();
-	//apply window function for fft
+	// Apply Hanning window for FFT
 	_applyWindowFunction();
-	//execute plan
+	// Execute FFT plan
 	fftwf_execute(plan);
-	//convert fft data to magnitudes
+	// Convert complex FFT output to real magnitudes
 	_convertOutputToMagnitudes();
-	//convert magnitudes to 32 buckets for visualization
+	// Convert magnitudes to 32 buckets for visualization
 	_computeBuckets();
 
 	return true;
 } 
 
+// Precompute Hanning window coefficients
 void AudioAnalyzer::_computeWindowFunction(){
 	windowFunction.resize(fftSize);
 	for (int i = 0; i < fftSize; i++) {
@@ -74,12 +76,14 @@ void AudioAnalyzer::_computeWindowFunction(){
 	}
 }
 
+// Apply Hanning window to input samples (to be done before FFT)
 void AudioAnalyzer::_applyWindowFunction(){
 	for(int i = 0; i < fftSize; i++){
 		fftInput[i] *= windowFunction[i];
 	}
 }
 
+// Compute RMS and peak amplitude of current block (to be done before FFT)
 void AudioAnalyzer::_computeRmsAndPeak(){
 	float sumSquares = 0.0f;
 	float peak = 0.0f;
@@ -96,21 +100,21 @@ void AudioAnalyzer::_computeRmsAndPeak(){
 	rmsVal = sqrtf(sumSquares / fftSize);
 	peakAmplitude = peak;
 }
-	//to get magnitude of a fft, take the sqrt(real*real + imag*imag)
-	//then normalize by num of samples (fftSize)
+
+// Convert FFT complex output into magnitudes
+// magnitude = sqrt(real^2 + imag^2) / fftSize
 void AudioAnalyzer::_convertOutputToMagnitudes(){
 	int numBins = fftSize / 2 + 1;
 
 	for(int i = 0; i < numBins; i++){
 		float real = fftOutput[i][0];
 		float imag = fftOutput[i][1];
-		//also normalize
 		magnitudeSpectrum[i] = sqrtf(real * real + imag * imag) * (1.0f / fftSize);
 	}
 }
-	//FIXME  : complete setup buckets and compute buckets, I think I'll hardcode setup?
-	//currently hardcoded for 32 buckets and 20hz to 16000hz, 44100hz sample rate, 1024fft 
-	//possibly edit it so I can switch it up, in the future
+
+// Setup frequency bucket ranges (currently hardcoded for 32 buckets, 20Hz–16kHz)
+// In future, change this so we can choose buckets?
 void AudioAnalyzer::_setupBuckets(){
 	numBuckets = 32;
 	//hardcoded using logarithmic scaling
@@ -118,9 +122,10 @@ void AudioAnalyzer::_setupBuckets(){
 
 	visualizationBuckets.resize(numBuckets);
 }
-//20hz to 16000hz
+
+// Collapse FFT magnitudes into log spaced buckets
 void AudioAnalyzer::_computeBuckets(){
-	//loop through and compute average in each range of bins then put that average into corresponding bucket
+	// Compute average magnitude in each range of bins, then set corresponding bucket to that average
 	for(int i = 0; i < numBuckets; i ++){
 		float sum = 0.0f;
 		int startBin = bucketRanges[i].first;
@@ -129,7 +134,7 @@ void AudioAnalyzer::_computeBuckets(){
 		for(int j = startBin; j <= endBin; j++){
 			sum += magnitudeSpectrum[j];
 		}
-		//then make the corresponding bucket the avg(possibly divide by two for true avg?)
+		// Make the corresponding bucket the average
 		int binCount = endBin - startBin + 1;
 		visualizationBuckets[i] = sum / binCount;
 	}
