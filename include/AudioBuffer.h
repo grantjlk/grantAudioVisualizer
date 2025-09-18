@@ -15,10 +15,10 @@
 */
 class AudioBuffer{
 	private:
-		const std::vector<float>* audioData;	// Pointer to audio data loaded from AudioLoader
-		size_t sourcePosition;					// Current read position in audio data
-		float* bufferData;						// Memory used for ring buffer storage
-		PaUtilRingBuffer ringBuffer;			
+		const std::vector<float>* audioData;	///< Pointer to audio data loaded from AudioLoader
+		size_t sourcePosition;					///< Current read position in audio data
+		float* bufferData;						///< Memory used for ring buffer storage
+		PaUtilRingBuffer ringBuffer;			///< Internal PortAudio ring buffer instance
 		
 	public:
 		/// @brief Construct an AudioBuffer with given size and loader for the audio source

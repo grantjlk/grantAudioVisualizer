@@ -38,14 +38,19 @@ class AudioAnalyzer{
 
 		/// @brief Precomputes Hanning window coefficients
 		void _computeWindowFunction();
+
 		/// @brief Applies Hanning window to input data to reduce spectral leakage, used right before the FFT
 		void _applyWindowFunction();
+
 		/// @brief Compute root mean square and peak amplitude of current analysis block
 		void _computeRmsAndPeak();
+
 		/// @brief Converts complex FFT output to their magnitudes
 		void _convertOutputToMagnitudes();
+
 		/// @brief Sets up logarithmic frequency bucket ranges for visualization
 		void _setupBuckets();
+
 		/// @brief Computes average magnitude for each visualization bucket
 		void _computeBuckets();
 
@@ -58,8 +63,10 @@ class AudioAnalyzer{
 		/// @param lowFreq Lower frequency bound for bucket grouping (only 20 works right now)
 		/// @param highFreq Higher frequency bound for bucket grouping (only 16k works right now)
 		AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets = 32, float lowFreq = 20.0f, float highFreq = 16000.0f);
+
 		/// @brief Cleans up FFTW resources
 		~AudioAnalyzer();
+
 
 		/// @brief Peeks data from the next block in the AudioBuffer, applies windowing, performs FFT, computes magnitude and buckets (non-destructive)
 		/// @return True if analysis was successful, false if not enough data available
@@ -78,6 +85,7 @@ class AudioAnalyzer{
 		/// @brief Get RMS value of most recent analysis block
 		/// @return Root mean square amplitude (loudness)
 		float getRmsVal() const {return rmsVal;};
+		
 		/// @brief Get peak ampitude of most recent analysis block
 		/// @return Maximum amplitude in block
 		float getPeakAmplitude() const {return peakAmplitude;};
