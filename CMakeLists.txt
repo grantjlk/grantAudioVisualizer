@@ -27,6 +27,7 @@ add_executable(AudioVisualizer
     src/AudioBuffer.cpp
     src/AudioOutput.cpp
     src/AudioAnalyzer.cpp
+    src/Visualizer.cpp
     third_party/portaudio/pa_ringbuffer.c
 )
 
