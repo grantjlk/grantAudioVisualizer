@@ -23,6 +23,9 @@ class Visualizer{
 		// Bar data
 		int numBars;
 		std::vector<float> barHeights;
+		// smoothing info
+		std::vector<float> smoothedHeights;
+		float smoothingFactor; 
 		// Sets up GLFW window and OpenGL context
 		bool setupWindow();
 		// compiiles shader from source code
@@ -50,6 +53,8 @@ class Visualizer{
 		bool shouldClose() const;
 		// polls for input
 		void pollEvents();
+		
+		void setSmoothingFactor(float factor);
 		//? maybe void setBarColor(float r, float g, float b)
 		//TODO	add smoothing if needed in future??
 		// Disable copy constructor and assignment operator

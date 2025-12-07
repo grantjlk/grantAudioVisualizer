@@ -43,9 +43,10 @@ void main() {
 Visualizer::Visualizer(int width, int height, int numBars)
 	: window(nullptr), windowWidth(width), windowHeight(height),
     shaderProgram(0), VAO(0), VBO(0),
-    numBars(numBars) {
+    numBars(numBars), smoothingFactor(0.5f) {
     
 	barHeights.resize(numBars, 0.0f);
+    smoothedHeights.resize(numBars, 0.0f);
 }
 
 Visualizer::~Visualizer(){
@@ -214,8 +215,11 @@ void Visualizer::updateData(const std::vector<float>& buckets){
         return;
     }
     
-    // direct copy, no smoothing yet
-    barHeights = buckets;
+    // apply smoothing by setting new height to the last height * smoothing factor + new bucket * 1 - smoothing factor
+    for(size_t i = 0; i < buckets.size(); i++){
+        smoothedHeights[i] = smoothedHeights[i] * smoothingFactor + buckets[i] * (1.0f - smoothingFactor);
+        barHeights[i] = smoothedHeights[i];
+    }
 }
 
 void Visualizer::render(){
@@ -249,4 +253,8 @@ bool Visualizer::shouldClose() const{
 
 void Visualizer::pollEvents(){
     glfwPollEvents();
+}
+
+void Visualizer::setSmoothingFactor(float factor){
+    smoothingFactor = factor;
 }
