@@ -1,17 +1,25 @@
 #include "Visualizer.h"
 
+Visualizer::Visualizer(int width, int height, int numBars){
+
+}
+
 Visualizer::~Visualizer(){
 	
 }
+
 bool Visualizer::setupWindow(){
 	
 }
+
 bool Visualizer::setupShaders(){
 	
 }
+
 bool Visualizer::setupGeometry(){
 	
 }
+
 static void framebufferSizeCallback(GLFWwindow* window, int width, int height){
 	glViewport(0, 0, width, height);
 	//update stored dimensions? 
@@ -24,4 +32,19 @@ bool Visualizer::initialize(){
 		return false;
 	}
 	setupWindow;
+}
+void Visualizer::updateData(){
+
+}
+
+void Visualizer::render(){
+
+}
+
+bool Visualizer::shouldClose() const{
+
+}
+
+void Visualizer::pollEvents(){
+	
 }
