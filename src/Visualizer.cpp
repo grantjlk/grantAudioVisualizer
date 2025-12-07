@@ -50,7 +50,14 @@ Visualizer::Visualizer(int width, int height, int numBars)
 
 Visualizer::~Visualizer(){
 	// clean up opengl resources
+    if (VAO) glDeleteVertexArrays(1, &VAO);
+    if (VBO) glDeleteBuffers(1, &VBO);
+    if (shaderProgram) glDeleteProgram(shaderProgram);
 	// terminate glfw
+    if (window) {
+        glfwDestroyWindow(window);
+    }
+    glfwTerminate();
 }
 
 // rteurns true if successfully setup window, false if not.
@@ -191,13 +198,13 @@ void Visualizer::framebufferSizeCallback(GLFWwindow* window, int width, int heig
 }
 
 bool Visualizer::initialize(){
-	if(!setupWindow){
+	if(!setupWindow()){
         return false;
     }
-    if(!setupShaders){
+    if(!setupShaders()){
         return false;
     }
-    setupGeometry;
+    setupGeometry();
 
     return true;
 }
