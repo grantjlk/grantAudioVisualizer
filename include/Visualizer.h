@@ -25,10 +25,14 @@ class Visualizer{
 		std::vector<float> barHeights;
 		// Sets up GLFW window and OpenGL context
 		bool setupWindow();
+		// compiiles shader from source code
+		GLuint _compileShader(const char* source, GLenum type);
+		// Links vertex and fragment shaders into a program
+		GLuint _createShaderProgram(GLuint vertexShader, GLuint fragmentShader);
 		// Sets up shaders for bar rendering
 		bool setupShaders();
 		// Sets up vertex buffer for rendering bars
-		bool setupGeometry();
+		void setupGeometry();
 		// GLFW callback for window resizing
 		static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 	public:
@@ -39,7 +43,7 @@ class Visualizer{
 		// initializes GLFW, creates window, and sets up OpenGL context
 		bool initialize();
 		// updates bar heights from analyzer data
-		void updateData();
+		void updateData(const std::vector<float>& buckets);
 		// Renders the frequency bars to the window
 		void render();
 		// Checks if window should close 
