@@ -22,7 +22,7 @@ void main() {
     // Position vertex
     vec2 pos = aPos;
     pos.x = pos.x * actualWidth + xOffset + actualWidth * 0.5;
-    pos.y = pos.y * height - 1.0 + height;
+    pos.y = pos.y * height - 1.0; //+ height if we want it to float
     
     gl_Position = vec4(pos, 0.0, 1.0);
 }
