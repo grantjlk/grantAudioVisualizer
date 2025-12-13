@@ -12,16 +12,9 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <tinyfiledialogs.h>
 
 #include <fftw3.h>
-    //PUT IN VISUALIZER
-void framebuffer_size_callback(GLFWwindow* window, int width, int height){
-    glViewport(0, 0, width, height);
-}  
-void processInput(GLFWwindow *window){
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
 
 int main() {
 /*commented out for now, testing main with visuals
@@ -114,9 +107,24 @@ int main() {
     }
     return 0;
 */
+// 0. File dialog popup to select file
+    const char* filterPatterns[] = { "*.mp3", "*.wav", "*.flac"};
+    char const * selection = tinyfd_openFileDialog(
+        "Select Audio File", // title
+        "", // optional initial directory
+        2, // number of filter patterns
+        filterPatterns, // char const * lFilterPatterns[2] = { "*.txt", "*.jpg" };
+        "Audio Files (*.mp3, *.wav, *.flac)", // optional filter description
+        0 // forbids multiple selections
+        ); 
+
+    if (!selection) {
+        std::cerr << "No file selected\n";
+        return 1;
+    }
 // 1. Load audio file
     AudioLoader loader;
-    if (!loader.loadAudioFile("../assets/delete.mp3")) {
+    if (!loader.loadAudioFile(selection)) {
         std::cerr << "Error: Could not load audio file\n";
         return 1;
     }
@@ -146,8 +154,9 @@ int main() {
         return 1;
     }
     
-    // Optional: Set custom color (r, g, b) - currently cyan by default
-    // visualizer.setBarColor(1.0f, 0.3f, 0.3f);  // Red bars
+    // optional: Adjust smoothing (0.0 = no smoothing, 0.9 = very smooth)
+    visualizer.setSmoothingFactor(0.6f);
+   
 
     // 6. Start playback
     if (!output.start()) {
@@ -179,7 +188,7 @@ int main() {
         visualizer.pollEvents();
         
         // Small delay to prevent maxing out CPU
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
+        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS (5 is smoother)
         
         // Stop if buffer drained
         if (fileEnded && buffer.getAvailableReadSamples() == 0) {
