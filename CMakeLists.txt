@@ -15,6 +15,7 @@ find_package(portaudio CONFIG REQUIRED)
 find_package(SndFile CONFIG REQUIRED)
 find_package(fftw3f CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
+find_package(tinyfiledialogs CONFIG REQUIRED)
 
 set_source_files_properties(
     third_party/portaudio/pa_ringbuffer.c
@@ -37,11 +38,12 @@ target_include_directories(AudioVisualizer PRIVATE
 )
 
 # Link libraries
-target_link_libraries(AudioVisualizer 
+target_link_libraries(AudioVisualizer PRIVATE
     glfw 
     OpenGL::GL
     portaudio
     SndFile::sndfile
     FFTW3::fftw3f
     glad::glad
+    tinyfiledialogs::tinyfiledialogs
 )
