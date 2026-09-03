@@ -66,8 +66,8 @@ vcpkg install glfw3 glad portaudio libsndfile fftw3 tinyfiledialogs
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/audio-visualizer.git
-cd audio-visualizer
+git clone https://github.com/grantjlk/grantAudioVisualizer.git
+cd grantAudioVisualizer
 
 # Create build directory
 mkdir build && cd build
