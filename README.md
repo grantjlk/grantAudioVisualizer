@@ -31,6 +31,7 @@ A cross-platform audio visualization application that renders frequency spectrum
 - **Custom GLSL shaders** for vertex transformation and fragment coloring
 - **Instanced rendering** for optimal performance
 - **Live FPS/frame-time counter** shown in the window title, measured each second from actual frame timing (not a fixed target)
+- **Per-stage performance breakdown** printed to the console once per second (buffer fill / FFT analysis / render time, in ms)
 
 ## Dependencies
 

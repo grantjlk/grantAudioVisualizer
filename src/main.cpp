@@ -173,23 +173,35 @@ int main() {
     // FPS/frame-time tracking (measured over the real loop, sleep included)
     int frameCount = 0;
     auto fpsTimerStart = std::chrono::steady_clock::now();
-    
+
+    // Per-stage timing breakdown, accumulated over each 1-second window (milliseconds)
+    double audioFillMs = 0.0;
+    double fftAnalysisMs = 0.0;
+    double renderMs = 0.0;
+
     while (!visualizer.shouldClose() && output.isActive()) {
         // Fill buffer if needed
+        auto fillStart = std::chrono::steady_clock::now();
         if (!fileEnded) {
             if (!buffer.fillBuffer(bufferSize / 2)) {
                 std::cout << "End of file reached, waiting for buffer to drain...\n";
                 fileEnded = true;
             }
         }
-        
+        audioFillMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fillStart).count();
+
         // Analyze audio and update visualizer
-        if (analyzer.analyzeNextBlock()) {
+        auto fftStart = std::chrono::steady_clock::now();
+        bool hasNewAnalysis = analyzer.analyzeNextBlock();
+        fftAnalysisMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fftStart).count();
+        if (hasNewAnalysis) {
             visualizer.updateData(analyzer.getBuckets());
         }
-        
+
         // Render visualization
+        auto renderStart = std::chrono::steady_clock::now();
         visualizer.render();
+        renderMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - renderStart).count();
         visualizer.pollEvents();
 
         // Update live FPS / frame-time display once per second
@@ -202,8 +214,18 @@ int main() {
             char title[128];
             std::snprintf(title, sizeof(title), "Audio Visualizer - %.1f FPS (%.2f ms/frame)", fps, frameTimeMs);
             visualizer.setWindowTitle(title);
+
+            // Per-stage breakdown (averaged per frame over the last second)
+            std::cout << "[Perf] FPS: " << fps
+                       << " | Avg Fill: " << (audioFillMs / frameCount) << " ms"
+                       << " | Avg FFT: " << (fftAnalysisMs / frameCount) << " ms"
+                       << " | Avg Render: " << (renderMs / frameCount) << " ms\n";
+
             frameCount = 0;
             fpsTimerStart = now;
+            audioFillMs = 0.0;
+            fftAnalysisMs = 0.0;
+            renderMs = 0.0;
         }
         
         // Small delay to prevent maxing out CPU
