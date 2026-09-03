@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <iostream>
+#include <string>
 
 class Visualizer{
 	private:
@@ -55,6 +56,8 @@ class Visualizer{
 		void pollEvents();
 		
 		void setSmoothingFactor(float factor);
+			// Updates the window title (used to display live FPS/frame time)
+			void setWindowTitle(const std::string& title);
 		//? maybe void setBarColor(float r, float g, float b)
 		//TODO	add smoothing if needed in future??
 		// Disable copy constructor and assignment operator

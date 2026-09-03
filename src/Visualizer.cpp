@@ -258,3 +258,9 @@ void Visualizer::pollEvents(){
 void Visualizer::setSmoothingFactor(float factor){
     smoothingFactor = factor;
 }
+
+void Visualizer::setWindowTitle(const std::string& title){
+    if (window) {
+        glfwSetWindowTitle(window, title.c_str());
+    }
+}

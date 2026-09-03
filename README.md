@@ -30,7 +30,7 @@ A cross-platform audio visualization application that renders frequency spectrum
 ### Rendering
 - **Custom GLSL shaders** for vertex transformation and fragment coloring
 - **Instanced rendering** for optimal performance
-- **Real-time updates** at 60 FPS
+- **Live FPS/frame-time counter** shown in the window title, measured each second from actual frame timing (not a fixed target)
 
 ## Dependencies
 
@@ -92,7 +92,8 @@ AudioVisualizer.exe  # Windows
 1. Launch the application
 2. Select an audio file using the file dialog
 3. Watch the frequency spectrum visualize your audio in real-time!
-4. Press **ESC** or close the window to exit
+4. Check the window title bar for live measured FPS and frame time
+5. Press **ESC** or close the window to exit
 
 ## How It Works
 

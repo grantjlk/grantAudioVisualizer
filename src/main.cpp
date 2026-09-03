@@ -12,6 +12,7 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <cstdio>
 #include <tinyfiledialogs.h>
 
 #include <fftw3.h>
@@ -168,6 +169,10 @@ int main() {
 
     // 7. Main loop
     bool fileEnded = false;
+
+    // FPS/frame-time tracking (measured over the real loop, sleep included)
+    int frameCount = 0;
+    auto fpsTimerStart = std::chrono::steady_clock::now();
     
     while (!visualizer.shouldClose() && output.isActive()) {
         // Fill buffer if needed
@@ -186,9 +191,23 @@ int main() {
         // Render visualization
         visualizer.render();
         visualizer.pollEvents();
+
+        // Update live FPS / frame-time display once per second
+        frameCount++;
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed = now - fpsTimerStart;
+        if (elapsed.count() >= 1.0) {
+            double fps = frameCount / elapsed.count();
+            double frameTimeMs = (elapsed.count() * 1000.0) / frameCount;
+            char title[128];
+            std::snprintf(title, sizeof(title), "Audio Visualizer - %.1f FPS (%.2f ms/frame)", fps, frameTimeMs);
+            visualizer.setWindowTitle(title);
+            frameCount = 0;
+            fpsTimerStart = now;
+        }
         
         // Small delay to prevent maxing out CPU
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS (5 is smoother)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // caps busy-waiting; see window title for real measured FPS
         
         // Stop if buffer drained
         if (fileEnded && buffer.getAvailableReadSamples() == 0) {
