@@ -85,6 +85,11 @@ bool Visualizer::setupWindow(){
 	
     glfwMakeContextCurrent(window);
 
+	// Enable vsync: swap blocks until the next monitor refresh instead of
+	// swapping as fast as possible, so the render loop paces itself to the
+	// display's real refresh rate with no busy-waiting.
+	glfwSwapInterval(1);
+
 	// set resize callback (needed because of c style function)
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
