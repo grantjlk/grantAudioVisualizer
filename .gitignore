@@ -2,6 +2,9 @@
 build/
 out/
 
+# Editor files
+.vscode/
+
 # Visual Studio files
 *.vcxproj
 *.vcxproj.filters
