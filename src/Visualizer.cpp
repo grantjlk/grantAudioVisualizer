@@ -50,6 +50,11 @@ Visualizer::Visualizer(int width, int height, int numBars)
 }
 
 Visualizer::~Visualizer(){
+	// render thread released the context on its way out (see main.cpp), so
+	// reclaim it here on whichever thread is destroying us before cleaning up
+	if (window) {
+		glfwMakeContextCurrent(window);
+	}
 	// clean up opengl resources
     if (VAO) glDeleteVertexArrays(1, &VAO);
     if (VBO) glDeleteBuffers(1, &VBO);
@@ -82,26 +87,34 @@ bool Visualizer::setupWindow(){
         return false;
     }
 
-	
-    glfwMakeContextCurrent(window);
-
-	// Enable vsync: swap blocks until the next monitor refresh instead of
-	// swapping as fast as possible, so the render loop paces itself to the
-	// display's real refresh rate with no busy-waiting.
-	glfwSwapInterval(1);
-
 	// set resize callback (needed because of c style function)
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-	// initialize GLAD
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    return true;
+}
+
+// makes context current, loads GLAD, compiles shaders, sets up geometry.
+// separate from setupWindow() so it can run on the render thread instead of
+// main - GL calls need the context current on the calling thread
+bool Visualizer::initializeGraphics(){
+	glfwMakeContextCurrent(window);
+
+	// vsync: swap blocks until next monitor refresh instead of swapping as fast as possible
+	glfwSwapInterval(1);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD\n";
         return false;
     }
 
 	glViewport(0, 0, windowWidth, windowHeight);
-    
+
+	if (!setupShaders()) {
+		return false;
+	}
+	setupGeometry();
+
     return true;
 }
 // typical shader compilation code
@@ -194,9 +207,9 @@ void Visualizer::setupGeometry(){
 }
 
 void Visualizer::framebufferSizeCallback(GLFWwindow* window, int width, int height){
-	glViewport(0, 0, width, height);
-	//update stored dimensions(using static cast because this func cannot access our members)
-    Visualizer* vis = static_cast<Visualizer*>(glfwGetWindowUserPointer(window));
+	// no GL calls here - context lives on the render thread now, render()
+	// applies the new size via glViewport itself each frame
+	Visualizer* vis = static_cast<Visualizer*>(glfwGetWindowUserPointer(window));
     if (vis) {
         vis->windowWidth = width;
         vis->windowHeight = height;
@@ -204,15 +217,7 @@ void Visualizer::framebufferSizeCallback(GLFWwindow* window, int width, int heig
 }
 
 bool Visualizer::initialize(){
-	if(!setupWindow()){
-        return false;
-    }
-    if(!setupShaders()){
-        return false;
-    }
-    setupGeometry();
-
-    return true;
+	return setupWindow();
 }
 void Visualizer::updateData(const std::vector<float>& buckets){
     if (buckets.size() != barHeights.size()) {
@@ -228,6 +233,8 @@ void Visualizer::updateData(const std::vector<float>& buckets){
 }
 
 void Visualizer::render(){
+    glViewport(0, 0, windowWidth, windowHeight);
+
     // Clear screen
     glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -258,6 +265,10 @@ bool Visualizer::shouldClose() const{
 
 void Visualizer::pollEvents(){
     glfwPollEvents();
+}
+
+void Visualizer::waitEventsTimeout(double timeoutSeconds){
+    glfwWaitEventsTimeout(timeoutSeconds);
 }
 
 void Visualizer::setSmoothingFactor(float factor){

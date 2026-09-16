@@ -17,8 +17,8 @@ A cross-platform audio visualization application that renders frequency spectrum
 ## Technical Highlights
 
 ### Architecture
-- **Thread-safe audio pipeline** using PortAudio's lock-free ring buffer
-- **Multi-threaded design**: Audio playback runs on separate thread from analysis and rendering
+- **Four-thread design**: a main thread (window/input events only), a dedicated render thread (FFT analysis + drawing, runs independently of the OS's window message loop so resizing/dragging the window never freezes the visualization), a background audio-fill thread (keeps the playback buffer topped up), and PortAudio's own real-time audio callback thread
+- **Lock-free audio pipeline**: audio samples flow through a single-writer/single-reader ring buffer (PortAudio's `PaUtilRingBuffer`) with no mutexes; cross-thread signals (stop flags, live FPS stats) use `std::atomic` instead of locks
 - **Efficient GPU rendering**: Instanced drawing reduces 32 bars to a single draw call
 
 ### Audio Processing
@@ -76,8 +76,9 @@ mkdir build && cd build
 # Configure with CMake (adjust vcpkg path as needed)
 cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-# Build
-cmake --build .
+# Build (add --config Release for an optimized build - on multi-config
+# generators like Visual Studio, --config defaults to Debug otherwise)
+cmake --build . --config Release
 ```
 
 ### Run
@@ -85,7 +86,7 @@ cmake --build .
 ```bash
 # From build directory
 ./AudioVisualizer  # Linux/macOS
-AudioVisualizer.exe  # Windows
+Release\AudioVisualizer.exe  # Windows (or Debug\AudioVisualizer.exe for a debug build)
 ```
 
 ## Usage

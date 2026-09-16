@@ -6,12 +6,13 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <atomic>
 
 class Visualizer{
 	private:
 		GLFWwindow* window;
-		int windowWidth;
-    	int windowHeight;
+		std::atomic<int> windowWidth;
+    	std::atomic<int> windowHeight;
 
 		// Opengl objects
 		GLuint shaderProgram;
@@ -26,8 +27,8 @@ class Visualizer{
 		std::vector<float> barHeights;
 		// smoothing info
 		std::vector<float> smoothedHeights;
-		float smoothingFactor; 
-		// Sets up GLFW window and OpenGL context
+		float smoothingFactor;
+		// Creates the GLFW window (main thread only, no GL calls)
 		bool setupWindow();
 		// compiiles shader from source code
 		GLuint _compileShader(const char* source, GLenum type);
@@ -37,24 +38,30 @@ class Visualizer{
 		bool setupShaders();
 		// Sets up vertex buffer for rendering bars
 		void setupGeometry();
-		// GLFW callback for window resizing
+		// GLFW callback for window resizing - just stores the new size, no GL calls
+		// (render() applies it via glViewport on the render thread each frame)
 		static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 	public:
 		//initializes window dimensions and bar count
 		Visualizer(int width = 800, int height = 600, int numBars = 32);
 		// cleans up opengl resources and glfw
 		~Visualizer();
-		// initializes GLFW, creates window, and sets up OpenGL context
+		// creates the window (call from main thread)
 		bool initialize();
+		// makes the GL context current on the calling thread, loads GLAD, compiles
+		// shaders, sets up geometry - call once from whichever thread will render
+		bool initializeGraphics();
 		// updates bar heights from analyzer data
 		void updateData(const std::vector<float>& buckets);
 		// Renders the frequency bars to the window
 		void render();
-		// Checks if window should close 
+		// Checks if window should close
 		bool shouldClose() const;
 		// polls for input
 		void pollEvents();
-		
+		// like pollEvents but sleeps efficiently up to timeoutSeconds if nothing happens
+		void waitEventsTimeout(double timeoutSeconds);
+
 		void setSmoothingFactor(float factor);
 			// Updates the window title (used to display live FPS/frame time)
 			void setWindowTitle(const std::string& title);
