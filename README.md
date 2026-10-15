@@ -31,7 +31,7 @@ A cross-platform audio visualization application that renders frequency spectrum
 - **Custom GLSL shaders** for vertex transformation and fragment coloring
 - **Instanced rendering** for optimal performance
 - **Live FPS/frame-time counter** shown in the window title, measured each second from actual frame timing (not a fixed target)
-- **Per-stage performance breakdown** printed to the console once per second (buffer fill / FFT analysis / render time, in ms)
+- **Built-in performance instrumentation**: per-stage timing (FFT / draw / vsync wait / buffer fill) and audio underrun counts each second, plus whole-run frame-time percentiles on exit (see [Performance](#performance))
 
 ## Dependencies
 
@@ -87,6 +87,9 @@ cmake --build . --config Release
 # From build directory
 ./AudioVisualizer  # Linux/macOS
 Release\AudioVisualizer.exe  # Windows (or Debug\AudioVisualizer.exe for a debug build)
+
+# Optionally pass a file to skip the file dialog
+Release\AudioVisualizer.exe ..\assets\sweeptest.mp3
 ```
 
 ## Usage
@@ -120,6 +123,34 @@ Release\AudioVisualizer.exe  # Windows (or Debug\AudioVisualizer.exe for a debug
 - **Vertex Shader**: Transforms single quad geometry into 32 positioned bars
 - **Fragment Shader**: Applies solid color
 - **Smoothing**: Exponential moving average prevents jittery motion
+
+## Performance
+
+Measured with the app's built-in instrumentation on a Release build.
+
+**Test machine:** AMD Ryzen 5 7535U, integrated Radeon graphics, 16 GB RAM, Windows 11, 60 Hz display, MSVC 2022
+
+| | Normal playback | Dragging/resizing the window |
+|---|---|---|
+| Run | 3:52 song, 13,921 frames | 36 s sweep, 2,499 frames |
+| Frame time p50 | 16.69 ms | 16.32 ms |
+| Frame time p99 | 18.33 ms | 32.72 ms |
+| Frame time p99.9 | 20.35 ms | 51.12 ms |
+| Frame time max | 38.25 ms | 101.78 ms |
+| Audio underruns | **0** | **0** |
+
+**Per-frame work:** FFT analysis ~0.025 ms and draw ~0.023 ms (CPU side), so about 0.05 ms of real work per 16.7 ms frame (~0.3% of the frame budget). The rest is waiting on vsync. FFT was ~0.09 ms in a Debug build, about 4x slower.
+
+**Findings:**
+- Audio never dropped out, even while the window was being dragged and resized. Buffer filling and playback run on their own threads, so the OS's window move/resize loop can't starve them.
+- Frame pacing gets uneven during a drag/resize, but the visualization never freezes. Analysis and draw times stay flat the whole time; the spikes are all inside `glfwSwapBuffers`, where the driver and compositor are recreating the window surface. Before rendering moved to its own thread, the visualization froze completely while the window was held.
+- Frame time is reported as percentiles rather than an average, since averages hide stutters and FPS is pinned to the refresh rate by vsync.
+
+**Reproduce:**
+```bash
+Release\AudioVisualizer.exe ..\assets\sweeptest.mp3
+```
+Each second the console prints a `[Perf]` line, and a run summary with p50/p99/p99.9/max frame time and total underruns prints on exit. Any audio file works; longer files give more reliable percentiles (the normal-playback numbers above came from a full-length song).
 
 ## Future Enhancements
 
