@@ -88,6 +88,8 @@ bool AudioOutput::start(){
 //Stops audio playback
 bool AudioOutput::stop(){
 	if(!stream) return false;
+	// already stopped (render thread stops it when playback ends, then main stops it again on exit)
+	if(Pa_IsStreamStopped(stream) == 1) return true;
 	PaError err = Pa_StopStream(stream);
 	if(err != paNoError){
 		printf(  "Failed to stop PortAudio stream. PortAudio error: %s\n", Pa_GetErrorText(err) );

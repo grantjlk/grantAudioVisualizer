@@ -27,17 +27,23 @@ static double percentile(const std::vector<double>& sorted, double p) {
     return sorted[rank - 1];
 }
 
-int main() {
-// 0. File dialog popup to select file
-    const char* filterPatterns[] = { "*.mp3", "*.wav", "*.flac"};
-    char const * selection = tinyfd_openFileDialog(
-        "Select Audio File", // title
-        "", // optional initial directory
-        2, // number of filter patterns
-        filterPatterns, // char const * lFilterPatterns[2] = { "*.txt", "*.jpg" };
-        "Audio Files (*.mp3, *.wav, *.flac)", // optional filter description
-        0 // forbids multiple selections
-        );
+int main(int argc, char* argv[]) {
+// 0. Use the file path from the command line if given (so perf runs can use the same file
+// every time), otherwise file dialog popup to select file
+    char const * selection = nullptr;
+    if (argc > 1) {
+        selection = argv[1];
+    } else {
+        const char* filterPatterns[] = { "*.mp3", "*.wav", "*.flac"};
+        selection = tinyfd_openFileDialog(
+            "Select Audio File", // title
+            "", // optional initial directory
+            3, // number of filter patterns
+            filterPatterns, // char const * lFilterPatterns[2] = { "*.txt", "*.jpg" };
+            "Audio Files (*.mp3, *.wav, *.flac)", // optional filter description
+            0 // forbids multiple selections
+            );
+    }
 
     if (!selection) {
         std::cerr << "No file selected\n";
