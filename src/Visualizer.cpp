@@ -249,7 +249,10 @@ void Visualizer::render(){
     glBindVertexArray(VAO);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numBars);
     glBindVertexArray(0);
+}
 
+// separate from render() so the vsync wait can be timed on its own
+void Visualizer::swapBuffers(){
     glfwSwapBuffers(window);
 }
 

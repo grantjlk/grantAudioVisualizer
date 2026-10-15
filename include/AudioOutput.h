@@ -2,6 +2,7 @@
 #define AUDIOOUTPUT_H
 
 #include <portaudio.h>
+#include <atomic>
 #include "AudioBuffer.h"
 
 /**
@@ -14,6 +15,8 @@ class AudioOutput{
 		AudioBuffer* audioBuffer;	///< Pointer to shared audiobuffer
 		int sampleRate;				///< Sample rate of audio info from portaudio
 		int channels;				///< Number of audio channels (eg. 2 for stereo)
+		std::atomic<int> underrunCount;			///< Callbacks where the ring buffer didn't have enough samples (heard as a dropout)
+		std::atomic<int> deviceUnderflowCount;	///< Callbacks where portaudio says the device itself ran dry (callback ran late)
 
 		/// @brief Static callback function required by PortAudio.
 		/// Pulls audio data from AudioBuffer and writes to the outputBuffer
@@ -44,6 +47,14 @@ class AudioOutput{
 		/// @brief Checks if audio stream is currently active, ((Often used to run a while loop))
 		/// @return True if active, false otherwise
 		bool isActive() const;
+
+		/// @brief Gets how many callbacks came up short on samples since start, safe to call from any thread
+		/// @return Total buffer underruns
+		int getUnderrunCount() const {return underrunCount.load(std::memory_order_relaxed);}
+
+		/// @brief Gets how many times portaudio reported the output device ran dry, safe to call from any thread
+		/// @return Total device underflows
+		int getDeviceUnderflowCount() const {return deviceUnderflowCount.load(std::memory_order_relaxed);}
 
 		// Disable copy constructor and assignment operator
 		AudioOutput(const AudioOutput&) = delete;

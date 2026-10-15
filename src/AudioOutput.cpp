@@ -2,7 +2,8 @@
 
 // Constructor
 AudioOutput::AudioOutput(AudioBuffer* buffer, int sampleRate, int channels) 
-						: stream(nullptr), audioBuffer(buffer), sampleRate(sampleRate), channels(channels)
+						: stream(nullptr), audioBuffer(buffer), sampleRate(sampleRate), channels(channels),
+						underrunCount(0), deviceUnderflowCount(0)
 {
 	PaError err = Pa_Initialize();
 	if(err != paNoError){
@@ -54,8 +55,17 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	int samplesRead = self->audioBuffer->readBuffer(out, samplesRequested);
 	
 	//If not enough samples were read, fill the rest with silence
-	for(int i = samplesRead; i < framesPerBuffer * self->channels; i++){
+	for(int i = samplesRead; i < samplesRequested; i++){
 		out[i] = 0.0f;
+	}
+
+	// count underruns for perf stats. this runs on portaudio's real time thread, so no locks or
+	// allocations allowed here - an atomic fetch_add is lock free so it's safe
+	if(samplesRead < samplesRequested){
+		self->underrunCount.fetch_add(1, std::memory_order_relaxed);
+	}
+	if(statusFlags & paOutputUnderflow){
+		self->deviceUnderflowCount.fetch_add(1, std::memory_order_relaxed);
 	}
 	// Returns paContinue to keep the stream running
 	// Rather than returning paComplete, we have to stop the stream externally

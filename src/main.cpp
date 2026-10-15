@@ -14,9 +14,18 @@
 #include <cstdio>
 #include <thread>
 #include <atomic>
+#include <algorithm>
+#include <iomanip>
 #include <tinyfiledialogs.h>
 
 #include <fftw3.h>
+
+// nearest-rank percentile, expects sorted input. p is 0-100 (eg. 99 for p99)
+static double percentile(const std::vector<double>& sorted, double p) {
+    size_t rank = static_cast<size_t>(std::ceil(p / 100.0 * sorted.size()));
+    rank = std::clamp<size_t>(rank, 1, sorted.size());
+    return sorted[rank - 1];
+}
 
 int main() {
 // 0. File dialog popup to select file
@@ -84,6 +93,9 @@ int main() {
     std::atomic<bool> stopFillThread{false};
     std::atomic<long long> fillTimeNs{0};
     std::atomic<int> fillCallCount{0};
+    // underrun count when the file ran out, so the expected one at the very end (buffer
+    // draining its last partial chunk) doesn't show up in the final summary
+    std::atomic<int> underrunsAtEof{0};
 
     std::thread fillThread([&]() {
         while (!stopFillThread.load(std::memory_order_relaxed)) {
@@ -96,7 +108,9 @@ int main() {
 
             if (!more) {
                 std::cout << "End of file reached, waiting for buffer to drain...\n";
-                audioFileEnded.store(true, std::memory_order_relaxed);
+                underrunsAtEof.store(output.getUnderrunCount(), std::memory_order_relaxed);
+                // release so underrunsAtEof is guaranteed visible to whoever sees audioFileEnded == true
+                audioFileEnded.store(true, std::memory_order_release);
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -119,37 +133,66 @@ int main() {
             return;
         }
 
-        // fps/frame-time tracking, updated once a second
-        int frameCount = 0;
-        auto fpsTimerStart = std::chrono::steady_clock::now();
+        // ms elapsed since a time point, just to keep the timing lines short
+        auto msSince = [](std::chrono::steady_clock::time_point start) {
+            return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        };
 
-        // per-stage timers (ms), reset every second
-        double fftAnalysisMs = 0.0;
-        double renderMs = 0.0;
+        // per-second stats, reset every second
+        int frameCount = 0;
+        auto statsTimerStart = std::chrono::steady_clock::now();
+        double fftMs = 0.0;
+        double drawMs = 0.0;
+        double swapMs = 0.0;
+        double worstFrameMs = 0.0;
+
+        // every frame time for the whole run, for percentiles at the end. averages hide stutters,
+        // percentiles show them. reserved for ~10 min at 60fps so it doesn't reallocate mid run
+        std::vector<double> allFrameTimesMs;
+        allFrameTimesMs.reserve(60 * 60 * 10);
+        auto lastFrameStart = std::chrono::steady_clock::now();
+        bool firstFrame = true;
+
+        std::cout << std::fixed << std::setprecision(3);
 
         while (!visualizer.shouldClose() && output.isActive() && !quitRequested.load(std::memory_order_relaxed)) {
+            // frame time = start of last frame to start of this one, so it includes everything (vsync wait too)
+            auto frameStart = std::chrono::steady_clock::now();
+            if (!firstFrame) {
+                double frameMs = std::chrono::duration<double, std::milli>(frameStart - lastFrameStart).count();
+                allFrameTimesMs.push_back(frameMs);
+                worstFrameMs = std::max(worstFrameMs, frameMs);
+            }
+            firstFrame = false;
+            lastFrameStart = frameStart;
+
             // Analyze audio and update visualizer
-            auto fftStart = std::chrono::steady_clock::now();
             bool hasNewAnalysis = analyzer.analyzeNextBlock();
-            fftAnalysisMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fftStart).count();
+            fftMs += msSince(frameStart);
             if (hasNewAnalysis) {
                 visualizer.updateData(analyzer.getBuckets());
             }
 
-            // Render visualization
-            auto renderStart = std::chrono::steady_clock::now();
+            // Draw (cpu side of issuing the gl calls, the actual work)
+            auto drawStart = std::chrono::steady_clock::now();
             visualizer.render();
-            renderMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - renderStart).count();
+            drawMs += msSince(drawStart);
 
-            // Update fps/frame-time once per second. glfwSetWindowTitle has to run on the
+            // Swap, mostly just waiting for the next monitor refresh because of vsync
+            auto swapStart = std::chrono::steady_clock::now();
+            visualizer.swapBuffers();
+            swapMs += msSince(swapStart);
+
+            // Update stats once per second. glfwSetWindowTitle has to run on the
             // main thread, so just stash the numbers here and let main pick them up.
             frameCount++;
             auto now = std::chrono::steady_clock::now();
-            std::chrono::duration<double> elapsed = now - fpsTimerStart;
+            std::chrono::duration<double> elapsed = now - statsTimerStart;
             if (elapsed.count() >= 1.0) {
                 double fps = frameCount / elapsed.count();
+                double avgFrameMs = (elapsed.count() * 1000.0) / frameCount;
                 lastFps.store(fps, std::memory_order_relaxed);
-                lastFrameTimeMs.store((elapsed.count() * 1000.0) / frameCount, std::memory_order_relaxed);
+                lastFrameTimeMs.store(avgFrameMs, std::memory_order_relaxed);
                 titleNeedsUpdate.store(true, std::memory_order_relaxed);
 
                 // fill runs on its own thread at its own rate, so average per call not per frame
@@ -159,23 +202,43 @@ int main() {
                     : 0.0;
 
                 std::cout << "[Perf] FPS: " << fps
-                           << " | Avg Fill: " << fillMsAvg << " ms (" << fillCalls << " calls)"
-                           << " | Avg FFT: " << (fftAnalysisMs / frameCount) << " ms"
-                           << " | Avg Render: " << (renderMs / frameCount) << " ms\n";
+                           << " | Frame avg/worst: " << avgFrameMs << " / " << worstFrameMs << " ms"
+                           << " | FFT: " << (fftMs / frameCount) << " ms"
+                           << " | Draw: " << (drawMs / frameCount) << " ms"
+                           << " | VSync wait: " << (swapMs / frameCount) << " ms"
+                           << " | Fill: " << fillMsAvg << " ms (" << fillCalls << " calls)"
+                           << " | Underruns: " << output.getUnderrunCount() << "\n";
 
                 frameCount = 0;
-                fpsTimerStart = now;
-                fftAnalysisMs = 0.0;
-                renderMs = 0.0;
+                statsTimerStart = now;
+                fftMs = 0.0;
+                drawMs = 0.0;
+                swapMs = 0.0;
+                worstFrameMs = 0.0;
             }
 
             // Stop if buffer drained
-            if (audioFileEnded.load(std::memory_order_relaxed) && buffer.getAvailableReadSamples() == 0) {
+            if (audioFileEnded.load(std::memory_order_acquire) && buffer.getAvailableReadSamples() == 0) {
                 std::cout << "Playback finished.\n";
                 output.stop();
                 break;
             }
         }
+
+        // Whole run summary
+        if (!allFrameTimesMs.empty()) {
+            std::sort(allFrameTimesMs.begin(), allFrameTimesMs.end());
+            std::cout << "\n[Perf] Run summary (" << allFrameTimesMs.size() << " frames)\n"
+                      << "  Frame time  p50: " << percentile(allFrameTimesMs, 50.0) << " ms"
+                      << " | p99: " << percentile(allFrameTimesMs, 99.0) << " ms"
+                      << " | p99.9: " << percentile(allFrameTimesMs, 99.9) << " ms"
+                      << " | max: " << allFrameTimesMs.back() << " ms\n";
+        }
+        int underruns = audioFileEnded.load(std::memory_order_acquire)
+            ? underrunsAtEof.load(std::memory_order_relaxed)
+            : output.getUnderrunCount();
+        std::cout << "  Underruns: " << underruns << " (ring buffer ran dry)"
+                  << " | Device underflows: " << output.getDeviceUnderflowCount() << "\n";
 
         quitRequested.store(true, std::memory_order_relaxed);
         glfwMakeContextCurrent(nullptr); // release context so main thread can clean up

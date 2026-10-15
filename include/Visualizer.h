@@ -53,8 +53,10 @@ class Visualizer{
 		bool initializeGraphics();
 		// updates bar heights from analyzer data
 		void updateData(const std::vector<float>& buckets);
-		// Renders the frequency bars to the window
+		// Renders the frequency bars to the back buffer (call swapBuffers() after to show it)
 		void render();
+		// Shows the frame, blocks until next monitor refresh because of vsync
+		void swapBuffers();
 		// Checks if window should close
 		bool shouldClose() const;
 		// polls for input
