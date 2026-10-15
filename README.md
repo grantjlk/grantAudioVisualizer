@@ -139,14 +139,14 @@ Measured with the app's built-in instrumentation on a Release build.
 | Frame time max | 38.25 ms | 101.78 ms |
 | Audio underruns | **0** | **0** |
 
-**Per-frame work:** FFT analysis ~0.025 ms and draw ~0.023 ms (CPU side), so about 0.05 ms of real work per 16.7 ms frame (~0.3% of the frame budget). The rest is waiting on vsync. FFT was ~0.09 ms in a Debug build, about 4x slower.
+**Per-frame work:** FFT analysis ~0.025 ms and draw ~0.023 ms (CPU side), so about 0.05 ms of real work per 16.7 ms frame (~0.3% of the frame budget). The rest is waiting on vsync.
 
 **Findings:**
 - Audio never dropped out, even while the window was being dragged and resized. Buffer filling and playback run on their own threads, so the OS's window move/resize loop can't starve them.
 - Frame pacing gets uneven during a drag/resize, but the visualization never freezes. Analysis and draw times stay flat the whole time; the spikes are all inside `glfwSwapBuffers`, where the driver and compositor are recreating the window surface. Before rendering moved to its own thread, the visualization froze completely while the window was held.
 - Frame time is reported as percentiles rather than an average, since averages hide stutters and FPS is pinned to the refresh rate by vsync.
 
-**Reproduce:**
+**Reproduce** (from the build directory):
 ```bash
 Release\AudioVisualizer.exe ..\assets\sweeptest.mp3
 ```

@@ -42,5 +42,7 @@ Makefile
 # Temporary files
 *.tmp
 *.temp
+*.etl
+
 # Copyrighted audio used for local testing only
 assets/delete.mp3
