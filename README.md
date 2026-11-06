@@ -18,7 +18,7 @@ A cross-platform audio visualization application that renders frequency spectrum
 
 ### Architecture
 - **Four-thread design**: a main thread (window/input events only), a dedicated render thread (FFT analysis + drawing, runs independently of the OS's window message loop so resizing/dragging the window never freezes the visualization), a background audio-fill thread (keeps the playback buffer topped up), and PortAudio's own real-time audio callback thread
-- **Lock-free audio pipeline**: audio samples flow through a single-writer/single-reader ring buffer (PortAudio's `PaUtilRingBuffer`) with no mutexes; cross-thread signals (stop flags, live FPS stats) use `std::atomic` instead of locks
+- **Lock-free audio pipeline**: audio flows through two single-producer/single-consumer ring buffers with no mutexes. PortAudio's `PaUtilRingBuffer` carries samples from the fill thread to the audio callback, and a custom `SpscRingBuffer` carries a mono copy of what was just played from the callback to the render thread, so the visualization analyzes exactly what's being heard. Each buffer has exactly one writer and one reader; cross-thread signals (stop flags, live FPS stats) use `std::atomic` instead of locks
 - **Efficient GPU rendering**: Instanced drawing reduces 32 bars to a single draw call
 
 ### Audio Processing
@@ -115,8 +115,8 @@ ctest -C Release
 
 1. **Audio Loading**: `AudioLoader` uses libsndfile to decode audio files into raw PCM samples
 2. **Buffering**: `AudioBuffer` maintains a thread-safe ring buffer for seamless playback
-3. **Playback**: `AudioOutput` streams audio through PortAudio's callback system
-4. **Analysis**: `AudioAnalyzer` performs FFT on audio data, converting time-domain samples to frequency spectrum
+3. **Playback**: `AudioOutput` streams audio through PortAudio's callback system, and sends a mono downmix of each played block to the analyzer
+4. **Analysis**: `AudioAnalyzer` keeps a sliding window of the latest 1024 played samples and performs FFT on it, converting time-domain samples to frequency spectrum
 5. **Visualization**: `Visualizer` renders frequency buckets as dynamic bars using OpenGL
 
 ### FFT Analysis

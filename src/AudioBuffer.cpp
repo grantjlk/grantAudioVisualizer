@@ -40,12 +40,6 @@ int AudioBuffer::readBuffer(float* output, int frameCount){
 	return PaUtil_ReadRingBuffer(&ringBuffer, output, frameCount);
 }
 
-// Copies current buffer as a temp buffer and reads from it to peek without destroying
-int AudioBuffer::peekBuffer(float* output, int frameCount){
-	PaUtilRingBuffer tempBuffer = ringBuffer;
-	return PaUtil_ReadRingBuffer(&tempBuffer, output, frameCount);
-}
-
 int AudioBuffer::getAvailableReadSamples() const{
 	return PaUtil_GetRingBufferReadAvailable(&ringBuffer);
 }

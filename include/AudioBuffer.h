@@ -41,13 +41,6 @@ class AudioBuffer{
 		/// @return Number of samples actually read
 		int readBuffer(float* output, int frameCount);
 
-		/// @brief Peek at samples from the ring buffer, without removing, used in AudioAnalyzer to analyze at the same time AudioOutput reads
-		/// @note snapshot isn't atomic, so it can race with the fill thread / audio callback thread (rare, low risk)
-		/// @param output Destination array to copy samples
-		/// @param frameCount Number of samples to peek
-		/// @return Number of samples successfully copied
-		int peekBuffer(float* output, int frameCount);
-
 		/// @brief Gets samples available to read in buffer, useful to check buffer status
 		/// @return Number of readable samples
 		int getAvailableReadSamples() const;

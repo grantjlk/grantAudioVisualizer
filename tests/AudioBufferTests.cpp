@@ -51,24 +51,6 @@ TEST(AudioBufferTest, ReadReturnsShortWhenNotEnoughData){
 	EXPECT_FALSE(buffer.hasData());
 }
 
-TEST(AudioBufferTest, PeekDoesNotConsume){
-	AudioLoader loader;
-	std::vector<float> source = makeRamp(8);
-	ASSERT_TRUE(loadSamples(loader, source));
-	AudioBuffer buffer(kBufferSize, loader);
-	buffer.fillBuffer(8);
-
-	std::vector<float> peeked(8);
-	EXPECT_EQ(buffer.peekBuffer(peeked.data(), 8), 8);
-	EXPECT_EQ(buffer.getAvailableReadSamples(), 8);
-
-	// a real read after the peek should get the exact same samples
-	std::vector<float> read(8);
-	EXPECT_EQ(buffer.readBuffer(read.data(), 8), 8);
-	EXPECT_EQ(peeked, source);
-	EXPECT_EQ(read, source);
-}
-
 TEST(AudioBufferTest, StaysInOrderAcrossWraparound){
 	AudioLoader loader;
 	std::vector<float> source = makeRamp(1000);

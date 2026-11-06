@@ -3,7 +3,9 @@
 
 #include <portaudio.h>
 #include <atomic>
+#include <vector>
 #include "AudioBuffer.h"
+#include "SpscRingBuffer.h"
 
 /**
  * @class AudioOutput
@@ -13,6 +15,8 @@ class AudioOutput{
 	private:
 		PaStream* stream;			///< Portaudio stream object
 		AudioBuffer* audioBuffer;	///< Pointer to shared audiobuffer
+		SpscRingBuffer<float>* playedAudio;	///< Mono copy of what was just played goes here for the analyzer (callback is the only writer)
+		std::vector<float> monoScratch;		///< Preallocated space for the mono downmix, since the callback can't allocate
 		int sampleRate;				///< Sample rate of audio info from portaudio
 		int channels;				///< Number of audio channels (eg. 2 for stereo)
 		std::atomic<int> underrunCount;			///< Callbacks where the ring buffer didn't have enough samples (heard as a dropout)
@@ -28,9 +32,10 @@ class AudioOutput{
 	public:
 		/// @brief Constructor initializes PortAudio and sets up the output stream to default output device.
 		/// @param buffer Pointer to the AudioBuffer used as the data source
+		/// @param playedAudio Ring buffer that gets a mono copy of everything played, read by AudioAnalyzer
 		/// @param sampleRate Sample rate of audio, input from AudioLoader's sample rate
 		/// @param channels Number of output channels from audio, input from AudioLoader's channels
-		AudioOutput(AudioBuffer* buffer, int sampleRate, int channels);
+		AudioOutput(AudioBuffer* buffer, SpscRingBuffer<float>* playedAudio, int sampleRate, int channels);
 
 		/// @brief Destructor stops and closes the stream, and terminates PortAudio
 		~AudioOutput();

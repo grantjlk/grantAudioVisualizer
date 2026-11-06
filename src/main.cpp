@@ -9,6 +9,7 @@
 #include "AudioOutput.h"
 #include "AudioAnalyzer.h"
 #include "Visualizer.h"
+#include "SpscRingBuffer.h"
 #include <cmath>
 #include <chrono>
 #include <cstdio>
@@ -71,8 +72,12 @@ int main(int argc, char* argv[]) {
     }
 
     // 4. Create audio output and analyzer
-    AudioOutput output(&buffer, loader.getSampleRate(), loader.getChannels());
-    AudioAnalyzer analyzer(&buffer, 1024, loader.getSampleRate());
+    // the output callback writes a mono copy of what it just played into playedAudio, and the analyzer
+    // reads it on the render thread. one writer and one reader, so the lock free buffer is safe.
+    // 8192 mono samples is ~186ms, plenty of slack if the render thread stalls for a few frames
+    SpscRingBuffer<float> playedAudio(8192);
+    AudioOutput output(&buffer, &playedAudio, loader.getSampleRate(), loader.getChannels());
+    AudioAnalyzer analyzer(&playedAudio, 1024, loader.getSampleRate());
 
     // 5. Create window (main thread only - GL context gets set up on the render thread)
     Visualizer visualizer(800, 600, 32);

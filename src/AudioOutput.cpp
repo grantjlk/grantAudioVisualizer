@@ -1,9 +1,12 @@
 #include "AudioOutput.h"
 
+// frames per callback we ask portaudio for. the mono scratch is sized off this
+static const int kFramesPerBuffer = 256;
+
 // Constructor
-AudioOutput::AudioOutput(AudioBuffer* buffer, int sampleRate, int channels) 
-						: stream(nullptr), audioBuffer(buffer), sampleRate(sampleRate), channels(channels),
-						underrunCount(0), deviceUnderflowCount(0)
+AudioOutput::AudioOutput(AudioBuffer* buffer, SpscRingBuffer<float>* playedAudio, int sampleRate, int channels)
+						: stream(nullptr), audioBuffer(buffer), playedAudio(playedAudio), monoScratch(kFramesPerBuffer),
+						sampleRate(sampleRate), channels(channels), underrunCount(0), deviceUnderflowCount(0)
 {
 	PaError err = Pa_Initialize();
 	if(err != paNoError){
@@ -16,7 +19,7 @@ AudioOutput::AudioOutput(AudioBuffer* buffer, int sampleRate, int channels)
 									channels,   // Number of output channels
 									paFloat32,  // 32 bit floating point output
 									sampleRate,
-									256,        // frames per buffer (can adjust)
+									kFramesPerBuffer,	// frames per buffer (can adjust)
 									outputCallback, // callback function
 									this);      // pass this object as data
 
@@ -66,6 +69,28 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	}
 	if(statusFlags & paOutputUnderflow){
 		self->deviceUnderflowCount.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	// send a mono copy of what was just played to the analyzer, so the bars match what's being heard.
+	// the analyzer used to peek ahead in audioBuffer from a third thread, which raced with this callback
+	// and the fill thread, and showed audio that hadn't played yet
+	if(self->playedAudio){
+		// chunks of the scratch size, in case portaudio ever hands us more frames than we asked for
+		for(unsigned long done = 0; done < framesPerBuffer; ){
+			unsigned long frames = std::min<unsigned long>(framesPerBuffer - done, self->monoScratch.size());
+			// average the channels, interleaved stereo fed straight into the fft reads as an octave too low
+			for(unsigned long f = 0; f < frames; f++){
+				float sum = 0.0f;
+				for(int c = 0; c < self->channels; c++){
+					sum += out[(done + f) * self->channels + c];
+				}
+				self->monoScratch[f] = sum / self->channels;
+			}
+			// if the analyzer fell behind (eg. render thread stalled) this just drops what doesn't fit,
+			// playback never waits on the visuals
+			self->playedAudio->write(self->monoScratch.data(), frames);
+			done += frames;
+		}
 	}
 	// Returns paContinue to keep the stream running
 	// Rather than returning paComplete, we have to stop the stream externally

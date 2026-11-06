@@ -1,7 +1,7 @@
 #include "AudioAnalyzer.h"
 
 // Constructor 
-AudioAnalyzer::AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : audioBuffer(buffer), fftSize(fftSize), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
+AudioAnalyzer::AudioAnalyzer(SpscRingBuffer<float>* playedAudio, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : playedAudio(playedAudio), incoming(playedAudio->getCapacity()), window(fftSize, 0.0f), samplesReceived(0), fftSize(fftSize), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
 	// Allocate fftw arrays for real to complex transform
 	fftInput = fftwf_alloc_real(fftSize);
 	fftOutput = fftwf_alloc_complex(fftSize / 2 + 1);
@@ -48,12 +48,28 @@ bool AudioAnalyzer::analyzeNextBlock(){
 	if(!fftInput || !fftOutput || !plan ){
 		return false;
 	}
-	// Peek samples from buffer (non destructive)
-	int samplesRead = audioBuffer->peekBuffer(fftInput, fftSize);
-	// Make sure enough samples were read
-	if(samplesRead < fftSize){
+	// Take everything played since last frame (~735 samples at 60fps and 44.1kHz)
+	size_t got = playedAudio->read(incoming.data(), incoming.size());
+	if(got == 0){
+		return false;	// nothing new played, keep showing the last result
+	}
+
+	// Slide the window forward so it always holds the latest fftSize samples
+	size_t size = window.size();
+	if(got >= size){
+		std::copy(incoming.begin() + (got - size), incoming.begin() + got, window.begin());
+	} else {
+		std::copy(window.begin() + got, window.end(), window.begin());
+		std::copy(incoming.begin(), incoming.begin() + got, window.end() - got);
+	}
+	samplesReceived += got;
+	// Wait until the window has been filled at least once (right at the start of playback)
+	if(samplesReceived < size){
 		return false;
 	}
+
+	// fftw transforms fftInput in place, so work on a copy and keep the window intact for next frame
+	std::copy(window.begin(), window.end(), fftInput);
 	// Compute RMS and peak amplitude on raw data
 	_computeRmsAndPeak();
 	// Apply Hanning window for FFT

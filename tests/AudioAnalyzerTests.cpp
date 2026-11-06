@@ -8,7 +8,7 @@
 
 constexpr int kSampleRate = 44100;
 constexpr int kFftSize = 1024;
-constexpr int kBufferSize = 2048;
+constexpr size_t kTapSize = 8192;
 
 // frequency that lands exactly on fft bin `bin` (each bin is sampleRate / fftSize = ~43 Hz wide).
 // exactly on a bin means a whole number of cycles fits in the window, so there's no leakage guesswork
@@ -16,29 +16,75 @@ static float binFrequency(int bin){
 	return static_cast<float>(bin) * kSampleRate / kFftSize;
 }
 
-TEST(AudioAnalyzerTest, NeedsAFullBlockToAnalyze){
-	AudioLoader loader;
-	ASSERT_TRUE(loadSamples(loader, makeSine(500, 440.0f, 0.5f), 1, kSampleRate));
-	AudioBuffer buffer(kBufferSize, loader);
-	buffer.fillBuffer(500);
+// pretend to be AudioOutput's callback, pushing "played" mono audio into the tap
+static void play(SpscRingBuffer<float>& tap, const std::vector<float>& samples){
+	ASSERT_EQ(tap.write(samples.data(), samples.size()), samples.size());
+}
 
-	AudioAnalyzer analyzer(&buffer, kFftSize, kSampleRate);
+static int loudestBucket(const AudioAnalyzer& analyzer){
+	const std::vector<float>& buckets = analyzer.getBuckets();
+	return static_cast<int>(std::max_element(buckets.begin(), buckets.end()) - buckets.begin());
+}
+
+TEST(AudioAnalyzerTest, WaitsForAFullWindow){
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
+
+	play(tap, makeSine(500, 440.0f, 0.5f));
+	EXPECT_FALSE(analyzer.analyzeNextBlock());
+	// the first 500 aren't thrown away, 524 more completes the window
+	play(tap, makeSine(524, 440.0f, 0.5f));
+	EXPECT_TRUE(analyzer.analyzeNextBlock());
+}
+
+TEST(AudioAnalyzerTest, OnlyAnalyzesWhenNewAudioWasPlayed){
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
+
+	play(tap, makeSine(kFftSize, 440.0f, 0.5f));
+	EXPECT_TRUE(analyzer.analyzeNextBlock());
+	// nothing played since, so nothing new to show
 	EXPECT_FALSE(analyzer.analyzeNextBlock());
 }
 
 TEST(AudioAnalyzerTest, SilenceGivesZeroBuckets){
-	AudioLoader loader;
-	ASSERT_TRUE(loadSamples(loader, std::vector<float>(kFftSize, 0.0f), 1, kSampleRate));
-	AudioBuffer buffer(kBufferSize, loader);
-	buffer.fillBuffer(kFftSize);
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
 
-	AudioAnalyzer analyzer(&buffer, kFftSize, kSampleRate);
+	play(tap, std::vector<float>(kFftSize, 0.0f));
 	ASSERT_TRUE(analyzer.analyzeNextBlock());
 	for(float bucket : analyzer.getBuckets()){
 		EXPECT_FLOAT_EQ(bucket, 0.0f);
 	}
 	EXPECT_FLOAT_EQ(analyzer.getRmsVal(), 0.0f);
 	EXPECT_FLOAT_EQ(analyzer.getPeakAmplitude(), 0.0f);
+}
+
+TEST(AudioAnalyzerTest, UsesOnlyTheLatestSamplesWhenALotArrivesAtOnce){
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
+
+	// eg. the render thread stalled for a bit, so two windows worth arrive in one frame.
+	// only the newer one (bin 100 -> bucket 25) should show
+	play(tap, makeSine(kFftSize, binFrequency(27), 0.5f));
+	play(tap, makeSine(kFftSize, binFrequency(100), 0.5f));
+	ASSERT_TRUE(analyzer.analyzeNextBlock());
+	EXPECT_EQ(loudestBucket(analyzer), 25);
+}
+
+TEST(AudioAnalyzerTest, WindowSlidesForward){
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
+
+	play(tap, std::vector<float>(kFftSize, 0.0f));
+	ASSERT_TRUE(analyzer.analyzeNextBlock());
+
+	// half a window of sine, so the window is now 512 zeros then 512 sine samples.
+	// rms over the whole window = sqrt(half * amplitude^2 / 2) = 0.5 * 0.5 = 0.25
+	play(tap, makeSine(kFftSize / 2, binFrequency(27), 0.5f));
+	ASSERT_TRUE(analyzer.analyzeNextBlock());
+	EXPECT_NEAR(analyzer.getRmsVal(), 0.25f, 1e-3f);
+	EXPECT_NEAR(analyzer.getPeakAmplitude(), 0.5f, 1e-2f);
 }
 
 // bin 27 (~1163 Hz) is only in bucket 19 (bins 24-30), and bin 100 (~4307 Hz) is only in
@@ -59,18 +105,12 @@ TEST_P(AudioAnalyzerSineTest, SineLandsInExpectedBucket){
 	const SineCase& c = GetParam();
 	const float amplitude = 0.5f;
 
-	AudioLoader loader;
-	ASSERT_TRUE(loadSamples(loader, makeSine(kFftSize, binFrequency(c.bin), amplitude, kSampleRate), 1, kSampleRate));
-	AudioBuffer buffer(kBufferSize, loader);
-	buffer.fillBuffer(kFftSize);
-
-	AudioAnalyzer analyzer(&buffer, kFftSize, kSampleRate);
+	SpscRingBuffer<float> tap(kTapSize);
+	AudioAnalyzer analyzer(&tap, kFftSize, kSampleRate);
+	play(tap, makeSine(kFftSize, binFrequency(c.bin), amplitude, kSampleRate));
 	ASSERT_TRUE(analyzer.analyzeNextBlock());
 
-	const std::vector<float>& buckets = analyzer.getBuckets();
-	int loudest = static_cast<int>(std::max_element(buckets.begin(), buckets.end()) - buckets.begin());
-	EXPECT_EQ(loudest, c.expectedBucket);
-
+	EXPECT_EQ(loudestBucket(analyzer), c.expectedBucket);
 	// rms of a sine is amplitude / sqrt(2), and the peak should be (almost) the amplitude
 	EXPECT_NEAR(analyzer.getRmsVal(), amplitude / std::sqrt(2.0f), 1e-3f);
 	EXPECT_NEAR(analyzer.getPeakAmplitude(), amplitude, 1e-2f);

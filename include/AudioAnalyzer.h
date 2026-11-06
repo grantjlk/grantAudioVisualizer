@@ -1,21 +1,27 @@
+#ifndef AUDIO_ANALYZER_H
+#define AUDIO_ANALYZER_H
+
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
 #include <vector>
 #include <fftw3.h>
-#include "AudioBuffer.h"
+#include "SpscRingBuffer.h"
 
 /**
  * @class AudioAnalyzer
  * @brief Performs real-time audio analysis using FFT to extract frequency information and audio metrics.
  * 
- * This class uses FFTW library to analyze audio data from an AudioBuffer.
+ * This class uses FFTW library to analyze the mono audio AudioOutput just played.
  * It computes frequency spectrum, organizes frequencies into logarithmic buckets
  * for visualization, and calculates RMS and peak amplitude values.
  */
 class AudioAnalyzer{
 	private:
-		AudioBuffer* audioBuffer;			///< Pointer to shared AudioBuffer for audio data
+		SpscRingBuffer<float>* playedAudio;	///< Mono audio that was just played, AudioOutput's callback writes it and this is the only reader
+		std::vector<float> incoming;		///< Scratch for draining playedAudio each frame (preallocated)
+		std::vector<float> window;			///< Latest fftSize samples, oldest first, slides forward as new audio comes in
+		size_t samplesReceived;				///< Total samples received, to know when the window has filled up the first time
 
 		int sampleRate;						///< Sample rate of audio data
 		int numBuckets;						///< Number of frequency buckets for visualization (locked at 32 right now)
@@ -56,20 +62,20 @@ class AudioAnalyzer{
 
 	public:
 		/// @brief Constructor initializes FFTW, allocates buffers, and sets up analysis parameters
-		/// @param buffer Pointer to AudioBuffer to analyze data from
+		/// @param playedAudio Ring buffer AudioOutput writes the played (mono) audio into
 		/// @param fftSize Number of samples per FFT
 		/// @param sampleRate Audio sample rate, input from AudioLoader's sample rate
 		/// @param numBuckets Number of visualization buckets (only 32 works right now)
 		/// @param lowFreq Lower frequency bound for bucket grouping (only 20 works right now)
 		/// @param highFreq Higher frequency bound for bucket grouping (only 16k works right now)
-		AudioAnalyzer(AudioBuffer* buffer, int fftSize, int sampleRate, int numBuckets = 32, float lowFreq = 20.0f, float highFreq = 16000.0f);
+		AudioAnalyzer(SpscRingBuffer<float>* playedAudio, int fftSize, int sampleRate, int numBuckets = 32, float lowFreq = 20.0f, float highFreq = 16000.0f);
 
 		/// @brief Cleans up FFTW resources
 		~AudioAnalyzer();
 
 
-		/// @brief Peeks data from the next block in the AudioBuffer, applies windowing, performs FFT, computes magnitude and buckets (non-destructive)
-		/// @return True if analysis was successful, false if not enough data available
+		/// @brief Pulls in any newly played audio, then applies windowing, performs FFT, computes magnitude and buckets on the latest fftSize samples
+		/// @return True if analysis ran, false if nothing new was played or there isn't a full window yet
 		bool analyzeNextBlock();
 
 		//Getters for analysis results
@@ -96,3 +102,5 @@ class AudioAnalyzer{
 		AudioAnalyzer& operator=(const AudioAnalyzer&) = delete;
 
 };
+
+#endif
