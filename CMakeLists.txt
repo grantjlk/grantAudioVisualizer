@@ -26,26 +26,39 @@ if(AUDIOVIS_BUILD_APP)
     find_package(glad CONFIG REQUIRED)
     find_package(tinyfiledialogs CONFIG REQUIRED)
 
-    add_executable(AudioVisualizer
-        src/main.cpp
+    # loading, buffering and analysis, split out from the app so the tests can link it
+    # without needing a window or an audio device
+    add_library(audio_core STATIC
         src/AudioLoader.cpp
         src/AudioBuffer.cpp
-        src/AudioOutput.cpp
         src/AudioAnalyzer.cpp
+    )
+    target_include_directories(audio_core PUBLIC include)
+    target_link_libraries(audio_core PUBLIC
+        pa_ringbuffer
+        SndFile::sndfile
+        FFTW3::fftw3f
+    )
+
+    add_executable(AudioVisualizer
+        src/main.cpp
+        src/AudioOutput.cpp
         src/Visualizer.cpp
     )
 
-    target_include_directories(AudioVisualizer PRIVATE include)
-
     # Link libraries
     target_link_libraries(AudioVisualizer PRIVATE
-        pa_ringbuffer
+        audio_core
         glfw
         OpenGL::GL
         portaudio
-        SndFile::sndfile
-        FFTW3::fftw3f
         glad::glad
         tinyfiledialogs::tinyfiledialogs
     )
+
+    option(AUDIOVIS_BUILD_TESTS "Build the unit tests (downloads GoogleTest)" ON)
+    if(AUDIOVIS_BUILD_TESTS)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
 endif()

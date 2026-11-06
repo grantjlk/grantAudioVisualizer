@@ -92,6 +92,15 @@ Release\AudioVisualizer.exe  # Windows (or Debug\AudioVisualizer.exe for a debug
 Release\AudioVisualizer.exe ..\assets\sweeptest.mp3
 ```
 
+### Tests
+
+Unit tests use GoogleTest (downloaded automatically by CMake) and cover the ring buffer wrapper and the FFT analysis (eg. a sine wave at a known frequency lands in the right bar).
+
+```bash
+# From build directory, after building
+ctest -C Release
+```
+
 ## Usage
 
 1. Launch the application
