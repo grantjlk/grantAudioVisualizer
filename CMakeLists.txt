@@ -55,10 +55,11 @@ if(AUDIOVIS_BUILD_APP)
         glad::glad
         tinyfiledialogs::tinyfiledialogs
     )
+endif()
 
-    option(AUDIOVIS_BUILD_TESTS "Build the unit tests (downloads GoogleTest)" ON)
-    if(AUDIOVIS_BUILD_TESTS)
-        enable_testing()
-        add_subdirectory(tests)
-    endif()
+# outside the app block since the ring buffer tests don't need any vcpkg libraries
+option(AUDIOVIS_BUILD_TESTS "Build the unit tests (downloads GoogleTest)" ON)
+if(AUDIOVIS_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
