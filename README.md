@@ -18,7 +18,8 @@ A cross-platform audio visualization application that renders frequency spectrum
 
 ### Architecture
 - **Four-thread design**: a main thread (window/input events only), a dedicated render thread (FFT analysis + drawing, runs independently of the OS's window message loop so resizing/dragging the window never freezes the visualization), a background audio-fill thread (keeps the playback buffer topped up), and PortAudio's own real-time audio callback thread
-- **Lock-free audio pipeline**: audio flows through two single-producer/single-consumer ring buffers with no mutexes. PortAudio's `PaUtilRingBuffer` carries samples from the fill thread to the audio callback, and a custom `SpscRingBuffer` carries a mono copy of what was just played from the callback to the render thread, so the visualization analyzes exactly what's being heard. Each buffer has exactly one writer and one reader; cross-thread signals (stop flags, live FPS stats) use `std::atomic` instead of locks
+- **Lock-free audio pipeline**: audio moves between threads through two single-producer/single-consumer ring buffers with no mutexes. One takes samples from the fill thread to the audio callback, and the other takes a mono copy of what was just played from the callback to the render thread, so the visualization shows exactly what you're hearing. Other cross-thread signals (stop flags, live FPS stats) use `std::atomic` instead of locks
+- **Custom ring buffer**: I wrote my own `SpscRingBuffer` for both handoffs and benchmarked it in three steps (`seq_cst`, then acquire/release, then cached indices with cache-line padding), ending up about 10x faster per handoff than where it started. It's compared against PortAudio's buffer and Erik Rigtorp's SPSCQueue, and comes back clean under ThreadSanitizer. More in [docs/ring-buffer.md](docs/ring-buffer.md)
 - **Efficient GPU rendering**: Instanced drawing reduces 32 bars to a single draw call
 
 ### Audio Processing
@@ -94,14 +95,14 @@ Release\AudioVisualizer.exe ..\assets\sweeptest.mp3
 
 ### Tests
 
-Unit tests use GoogleTest (downloaded automatically by CMake) and cover the ring buffer wrapper and the FFT analysis (eg. a sine wave at a known frequency lands in the right bar).
+Unit tests use GoogleTest (downloaded automatically by CMake) and cover the lock-free ring buffer (including a two-thread stress test), the audio buffer that feeds playback, and the FFT analysis (eg. a sine wave at a known frequency lands in the right bar).
 
 ```bash
 # From build directory, after building
 ctest -C Release
 ```
 
-There's also a ring buffer throughput benchmark comparing PortAudio's ring buffer with the custom one (run it plugged in, takes about a minute):
+There's also a ring buffer throughput benchmark comparing the custom buffer with PortAudio's and Rigtorp's (run it plugged in, takes a couple of minutes). Results and methodology are in [docs/ring-buffer.md](docs/ring-buffer.md).
 
 ```bash
 Release\RingBufferBench.exe
@@ -120,7 +121,7 @@ Release\RingBufferBench.exe
 ### Audio Pipeline
 
 1. **Audio Loading**: `AudioLoader` uses libsndfile to decode audio files into raw PCM samples
-2. **Buffering**: `AudioBuffer` maintains a thread-safe ring buffer for seamless playback
+2. **Buffering**: `AudioBuffer` keeps a lock-free ring buffer topped up from the decoded audio for seamless playback
 3. **Playback**: `AudioOutput` streams audio through PortAudio's callback system, and sends a mono downmix of each played block to the analyzer
 4. **Analysis**: `AudioAnalyzer` keeps a sliding window of the latest 1024 played samples and performs FFT on it, converting time-domain samples to frequency spectrum
 5. **Visualization**: `Visualizer` renders frequency buckets as dynamic bars using OpenGL
@@ -147,11 +148,11 @@ Measured with the app's built-in instrumentation on a Release build.
 
 | | Normal playback | Dragging/resizing the window |
 |---|---|---|
-| Run | 3:52 song, 13,921 frames | 36 s sweep, 2,499 frames |
-| Frame time p50 | 16.69 ms | 16.32 ms |
-| Frame time p99 | 18.33 ms | 32.72 ms |
-| Frame time p99.9 | 20.35 ms | 51.12 ms |
-| Frame time max | 38.25 ms | 101.78 ms |
+| Run | 3:52 song, 13,927 frames | sweep file, 2,708 frames |
+| Frame time p50 | 16.69 ms | 16.34 ms |
+| Frame time p99 | 18.39 ms | 21.16 ms |
+| Frame time p99.9 | 19.12 ms | 25.27 ms |
+| Frame time max | 20.09 ms | 31.93 ms |
 | Audio underruns | **0** | **0** |
 
 **Per-frame work:** FFT analysis ~0.025 ms and draw ~0.023 ms (CPU side), so about 0.05 ms of real work per 16.7 ms frame (~0.3% of the frame budget). The rest is waiting on vsync.
@@ -160,6 +161,7 @@ Measured with the app's built-in instrumentation on a Release build.
 - Audio never dropped out, even while the window was being dragged and resized. Buffer filling and playback run on their own threads, so the OS's window move/resize loop can't starve them.
 - Frame pacing gets uneven during a drag/resize, but the visualization never freezes. Analysis and draw times stay flat the whole time; the spikes are all inside `glfwSwapBuffers`, where the driver and compositor are recreating the window surface. Before rendering moved to its own thread, the visualization froze completely while the window was held.
 - Frame time is reported as percentiles rather than an average, since averages hide stutters and FPS is pinned to the refresh rate by vsync.
+- The drag/resize tail depends a lot on how hard the window is being moved: an earlier run with more aggressive dragging hit p99 32.7 ms and max 101.8 ms, still with 0 underruns.
 
 **Reproduce** (from the build directory):
 ```bash
@@ -175,6 +177,8 @@ Each second the console prints a `[Perf]` line, and a run summary with p50/p99/p
 - [ ] Playback controls (play/pause, seek, volume)
 - [ ] Audio effects (equalizer, reverb)
 - [ ] Export visualization as video
+
+<!-- TODO: short note on how AI tools were used in this project goes here -->
 
 ## Author
 
