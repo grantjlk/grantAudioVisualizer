@@ -20,8 +20,8 @@ endif()
 # turn off to build only the parts that don't need the vcpkg libraries (eg. benchmark in WSL)
 option(AUDIOVIS_BUILD_APP "Build the visualizer app (needs the vcpkg dependencies)" ON)
 
-# portaudio's ring buffer as its own small library, so the app and the benchmark can both
-# use it. it's just plain C with no other portaudio dependencies
+# portaudio's ring buffer as its own small library, only the benchmark uses it now (as the baseline
+# to compare against). it's just plain C with no other portaudio dependencies
 add_library(pa_ringbuffer STATIC third_party/portaudio/pa_ringbuffer.c)
 target_include_directories(pa_ringbuffer PUBLIC third_party/portaudio)
 
@@ -44,7 +44,6 @@ if(AUDIOVIS_BUILD_APP)
     target_include_directories(audio_core PUBLIC include)
     target_compile_options(audio_core PRIVATE ${AUDIOVIS_WARNINGS})
     target_link_libraries(audio_core PUBLIC
-        pa_ringbuffer
         SndFile::sndfile
         FFTW3::fftw3f
     )

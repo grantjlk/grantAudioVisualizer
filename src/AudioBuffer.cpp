@@ -1,34 +1,26 @@
 #include "AudioBuffer.h"
 
 // Constructor initializes ring buffer and sets source position to start
-AudioBuffer::AudioBuffer(int bufferSizeInSamples, const AudioLoader& loader){
-	audioData = &loader.getAudioData();
-	sourcePosition = 0;
-	bufferData = new float[bufferSizeInSamples]; 	//allocates ring buffer storage
-	PaUtil_InitializeRingBuffer(&ringBuffer, sizeof(float), bufferSizeInSamples, bufferData);
-}
-
-// Destructor frees ring buffer memory
-AudioBuffer::~AudioBuffer(){
-	delete[] bufferData;
+// (the ring buffer throws on a non power of two size, portaudio's used to just fail quietly)
+AudioBuffer::AudioBuffer(int bufferSizeInSamples, const AudioLoader& loader)
+	: audioData(&loader.getAudioData()), sourcePosition(0), ringBuffer(static_cast<size_t>(bufferSizeInSamples))
+{
 }
 
 bool AudioBuffer::fillBuffer(int samplesToWrite){
-	
+
 	// Stop if we reach the end of the audio
 	if(sourcePosition >= audioData->size()){
 		return false;
 	}
-	
-	// Check available space in the buffer
-	int freeSpace = PaUtil_GetRingBufferWriteAvailable(&ringBuffer);
+
 	// Calculate how much data is left
-	int availableData = static_cast<int>(audioData->size() - sourcePosition);
-	// Determine how many samples we can actually write
-	int actualSamples = std::min({samplesToWrite, availableData, freeSpace});
+	size_t availableData = audioData->size() - sourcePosition;
+	// Determine how many samples to try, write() itself stops when the buffer is full
+	size_t actualSamples = std::min(static_cast<size_t>(samplesToWrite), availableData);
 
 	// Write samples from audioData into ring buffer
-	int written = PaUtil_WriteRingBuffer(&ringBuffer, audioData->data() + sourcePosition, actualSamples);
+	size_t written = ringBuffer.write(audioData->data() + sourcePosition, actualSamples);
 	// Advance read pointer in source audio
 	sourcePosition += written;
 	// Return false if we've reached the end, true if more data remains
@@ -37,13 +29,13 @@ bool AudioBuffer::fillBuffer(int samplesToWrite){
 
 
 int AudioBuffer::readBuffer(float* output, int frameCount){
-	return PaUtil_ReadRingBuffer(&ringBuffer, output, frameCount);
+	return static_cast<int>(ringBuffer.read(output, static_cast<size_t>(frameCount)));
 }
 
 int AudioBuffer::getAvailableReadSamples() const{
-	return PaUtil_GetRingBufferReadAvailable(&ringBuffer);
+	return static_cast<int>(ringBuffer.readAvailable());
 }
 
 bool AudioBuffer::hasData() const{
-	return PaUtil_GetRingBufferReadAvailable(&ringBuffer) > 0;
+	return ringBuffer.readAvailable() > 0;
 }
