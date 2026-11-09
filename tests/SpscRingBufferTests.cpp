@@ -80,7 +80,7 @@ TEST(SpscRingBufferTest, StaysInOrderAcrossWraparound){
 	}
 }
 
-TEST(SpscRingBufferTest, IndicesSurviveOverflow){
+TEST(SpscRingBufferTest, IndexSubtractionWorksAcrossOverflow){
 	// can't write 2^64 elements in a test, so this checks the same math on a smaller scale:
 	// unsigned subtraction still gives the right count after the counter wraps around
 	size_t write = 2;

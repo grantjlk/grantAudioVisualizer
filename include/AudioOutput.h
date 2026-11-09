@@ -14,6 +14,7 @@
 class AudioOutput{
 	private:
 		PaStream* stream;			///< Portaudio stream object
+		bool paInitialized;			///< Whether Pa_Initialize succeeded, so the destructor only terminates if it did
 		AudioBuffer* audioBuffer;	///< Pointer to shared audiobuffer
 		SpscRingBuffer<float>* playedAudio;	///< Mono copy of what was just played goes here for the analyzer (callback is the only writer)
 		std::vector<float> monoScratch;		///< Preallocated space for the mono downmix, since the callback can't allocate

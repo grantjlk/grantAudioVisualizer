@@ -9,6 +9,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# warnings for our own code only (not portaudio's ring buffer or googletest)
+if(MSVC)
+    # C4324 just says alignas added padding, which is the whole point of it in the ring buffer
+    set(AUDIOVIS_WARNINGS /W4 /permissive- /wd4324)
+else()
+    set(AUDIOVIS_WARNINGS -Wall -Wextra)
+endif()
+
 # turn off to build only the parts that don't need the vcpkg libraries (eg. benchmark in WSL)
 option(AUDIOVIS_BUILD_APP "Build the visualizer app (needs the vcpkg dependencies)" ON)
 
@@ -34,6 +42,7 @@ if(AUDIOVIS_BUILD_APP)
         src/AudioAnalyzer.cpp
     )
     target_include_directories(audio_core PUBLIC include)
+    target_compile_options(audio_core PRIVATE ${AUDIOVIS_WARNINGS})
     target_link_libraries(audio_core PUBLIC
         pa_ringbuffer
         SndFile::sndfile
@@ -55,6 +64,7 @@ if(AUDIOVIS_BUILD_APP)
         glad::glad
         tinyfiledialogs::tinyfiledialogs
     )
+    target_compile_options(AudioVisualizer PRIVATE ${AUDIOVIS_WARNINGS})
 endif()
 
 # ring buffer throughput benchmark, no vcpkg libraries needed either
@@ -64,6 +74,11 @@ if(AUDIOVIS_BUILD_BENCH)
     add_executable(RingBufferBench bench/RingBufferBench.cpp)
     target_include_directories(RingBufferBench PRIVATE include)
     target_link_libraries(RingBufferBench PRIVATE pa_ringbuffer Threads::Threads)
+    target_compile_options(RingBufferBench PRIVATE ${AUDIOVIS_WARNINGS})
+    # msvc flags sscanf as "unsafe" and wants its own sscanf_s, plain sscanf is fine for parsing --cpus
+    if(MSVC)
+        target_compile_definitions(RingBufferBench PRIVATE _CRT_SECURE_NO_WARNINGS)
+    endif()
 endif()
 
 # outside the app block since the ring buffer tests don't need any vcpkg libraries

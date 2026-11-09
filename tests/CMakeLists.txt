@@ -19,6 +19,7 @@ find_package(Threads REQUIRED)
 add_executable(SpscRingBufferTests SpscRingBufferTests.cpp)
 target_include_directories(SpscRingBufferTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(SpscRingBufferTests PRIVATE GTest::gtest_main Threads::Threads)
+target_compile_options(SpscRingBufferTests PRIVATE ${AUDIOVIS_WARNINGS})
 gtest_discover_tests(SpscRingBufferTests)
 
 # these need libsndfile and fftw, so only when the app (and audio_core) is being built
@@ -29,5 +30,6 @@ if(TARGET audio_core)
         AudioAnalyzerTests.cpp
     )
     target_link_libraries(AudioTests PRIVATE audio_core GTest::gtest_main)
+    target_compile_options(AudioTests PRIVATE ${AUDIOVIS_WARNINGS})
     gtest_discover_tests(AudioTests)
 endif()

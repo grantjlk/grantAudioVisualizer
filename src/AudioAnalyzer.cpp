@@ -1,7 +1,7 @@
 #include "AudioAnalyzer.h"
 
 // Constructor 
-AudioAnalyzer::AudioAnalyzer(SpscRingBuffer<float>* playedAudio, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : playedAudio(playedAudio), incoming(playedAudio->getCapacity()), window(fftSize, 0.0f), samplesReceived(0), fftSize(fftSize), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
+AudioAnalyzer::AudioAnalyzer(SpscRingBuffer<float>* playedAudio, int fftSize, int sampleRate, int numBuckets, float lowFreq, float highFreq) : playedAudio(playedAudio), incoming(playedAudio->getCapacity()), window(fftSize, 0.0f), samplesReceived(0), sampleRate(sampleRate), numBuckets(numBuckets), lowFreq(lowFreq), highFreq(highFreq), fftSize(fftSize), fftInput(nullptr), fftOutput(nullptr), plan(nullptr), rmsVal(0.0f), peakAmplitude(0.0f){
 	// Allocate fftw arrays for real to complex transform
 	fftInput = fftwf_alloc_real(fftSize);
 	fftOutput = fftwf_alloc_complex(fftSize / 2 + 1);
@@ -88,7 +88,7 @@ bool AudioAnalyzer::analyzeNextBlock(){
 void AudioAnalyzer::_computeWindowFunction(){
 	windowFunction.resize(fftSize);
 	for (int i = 0; i < fftSize; i++) {
-    	windowFunction[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (fftSize - 1)));
+    	windowFunction[i] = 0.5f * (1.0f - cosf(2.0f * static_cast<float>(M_PI) * i / (fftSize - 1)));
 	}
 }
 

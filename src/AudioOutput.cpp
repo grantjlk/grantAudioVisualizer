@@ -1,11 +1,13 @@
 #include "AudioOutput.h"
+#include <algorithm>
+#include <cstdio>
 
 // frames per callback we ask portaudio for. the mono scratch is sized off this
 static const int kFramesPerBuffer = 256;
 
 // Constructor
 AudioOutput::AudioOutput(AudioBuffer* buffer, SpscRingBuffer<float>* playedAudio, int sampleRate, int channels)
-						: stream(nullptr), audioBuffer(buffer), playedAudio(playedAudio), monoScratch(kFramesPerBuffer),
+						: stream(nullptr), paInitialized(false), audioBuffer(buffer), playedAudio(playedAudio), monoScratch(kFramesPerBuffer),
 						sampleRate(sampleRate), channels(channels), underrunCount(0), deviceUnderflowCount(0)
 {
 	PaError err = Pa_Initialize();
@@ -13,7 +15,9 @@ AudioOutput::AudioOutput(AudioBuffer* buffer, SpscRingBuffer<float>* playedAudio
 		printf(  "Failed to initialize PortAudio. PortAudio error: %s\n", Pa_GetErrorText( err ) );
 		return;
 	}
-	
+	// only terminate in the destructor if this worked, portaudio counts initialize/terminate calls
+	paInitialized = true;
+
 	err = Pa_OpenDefaultStream(&stream,
 									0,          // no input channels
 									channels,   // Number of output channels
@@ -39,13 +43,16 @@ AudioOutput::~AudioOutput(){
 		stream = nullptr;
 	}
 
-	Pa_Terminate();
+	if(paInitialized){
+		Pa_Terminate();
+	}
 }
 
 // Static callback function used by PortAudio to request audio data
-int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
+// (input and timing info aren't used, names commented out so the compiler doesn't warn)
+int AudioOutput::outputCallback( const void* /*inputBuffer*/, void *outputBuffer,
 						unsigned long framesPerBuffer,
-						const PaStreamCallbackTimeInfo* timeInfo,
+						const PaStreamCallbackTimeInfo* /*timeInfo*/,
 						PaStreamCallbackFlags statusFlags,
 						void *userData )
 {
@@ -54,7 +61,7 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	float* out = static_cast<float*>(outputBuffer);
 	
 	//Attempt to read samples
-	int samplesRequested = framesPerBuffer * self->channels;
+	int samplesRequested = static_cast<int>(framesPerBuffer) * self->channels;
 	int samplesRead = self->audioBuffer->readBuffer(out, samplesRequested);
 	
 	//If not enough samples were read, fill the rest with silence
@@ -77,7 +84,7 @@ int AudioOutput::outputCallback( const void *inputBuffer, void *outputBuffer,
 	if(self->playedAudio){
 		// chunks of the scratch size, in case portaudio ever hands us more frames than we asked for
 		for(unsigned long done = 0; done < framesPerBuffer; ){
-			unsigned long frames = std::min<unsigned long>(framesPerBuffer - done, self->monoScratch.size());
+			unsigned long frames = std::min(framesPerBuffer - done, static_cast<unsigned long>(self->monoScratch.size()));
 			// average the channels, interleaved stereo fed straight into the fft reads as an octave too low
 			for(unsigned long f = 0; f < frames; f++){
 				float sum = 0.0f;
