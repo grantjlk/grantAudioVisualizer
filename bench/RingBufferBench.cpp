@@ -168,13 +168,14 @@ static RunResult runOnce(size_t chunk, uint64_t total, int producerCpu, int cons
 struct BenchEntry{
 	const char* name;
 	RunResult (*run)(size_t chunk, uint64_t total, int producerCpu, int consumerCpu);
+	bool bulk;
 	std::vector<double> results;
 	bool failed;
 };
 
 template <typename Buffer>
 static BenchEntry makeEntry(){
-	return BenchEntry{Buffer::name, &runOnce<Buffer>, {}, false};
+	return BenchEntry{Buffer::name, &runOnce<Buffer>, Buffer::bulk, {}, false};
 }
 
 static void reportFailure(BenchEntry& entry, size_t chunk, const RunResult& run){
@@ -207,6 +208,7 @@ int main(int argc, char* argv[]){
 	std::vector<BenchEntry> all = {
 		makeEntry<PaUtilAdapter>(),
 		makeEntry<SpscAdapter>(),
+		makeEntry<RigtorpAdapter>(),
 	};
 	std::vector<BenchEntry> entries;
 	for(const BenchEntry& entry : all){
@@ -215,7 +217,7 @@ int main(int argc, char* argv[]){
 		}
 	}
 	if(entries.empty()){
-		std::printf("no buffer with that name, options are: paUtil spsc\n");
+		std::printf("no buffer with that name, options are: paUtil spsc rigtorp\n");
 		return 1;
 	}
 
@@ -224,9 +226,15 @@ int main(int argc, char* argv[]){
 
 	bool allOk = true;
 	for(const ChunkConfig& config : kChunks){
+		// one element per call buffers only make sense at chunk 1
+		auto skipped = [&](const BenchEntry& entry){ return !entry.bulk && config.chunk > 1; };
+
 		for(BenchEntry& entry : entries){
 			entry.results.clear();
 			entry.failed = false;
+			if(skipped(entry)){
+				continue;
+			}
 			// one untimed warm up run first (caches, page faults on the fresh buffer, cpu clocking up)
 			RunResult warmup = entry.run(config.chunk, config.samplesPerRun, producerCpu, consumerCpu);
 			if(!warmup.inOrder){
@@ -239,7 +247,7 @@ int main(int argc, char* argv[]){
 		// through, it hits every buffer about equally instead of looking like one buffer is faster
 		for(int r = 0; r < runs; r++){
 			for(BenchEntry& entry : entries){
-				if(entry.failed){
+				if(entry.failed || skipped(entry)){
 					continue;
 				}
 				RunResult run = entry.run(config.chunk, config.samplesPerRun, producerCpu, consumerCpu);
@@ -256,6 +264,10 @@ int main(int argc, char* argv[]){
 		for(BenchEntry& entry : entries){
 			if(entry.failed){
 				allOk = false;
+				continue;
+			}
+			if(skipped(entry)){
+				std::printf("%-8s chunk %4zu  n/a (one element per call)\n", entry.name, config.chunk);
 				continue;
 			}
 			std::sort(entry.results.begin(), entry.results.end());

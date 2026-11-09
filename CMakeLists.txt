@@ -73,6 +73,8 @@ if(AUDIOVIS_BUILD_BENCH)
     find_package(Threads REQUIRED)
     add_executable(RingBufferBench bench/RingBufferBench.cpp)
     target_include_directories(RingBufferBench PRIVATE include)
+    # rigtorp's SPSCQueue as a reference to compare against (header only, MIT)
+    target_include_directories(RingBufferBench SYSTEM PRIVATE third_party)
     target_link_libraries(RingBufferBench PRIVATE pa_ringbuffer Threads::Threads)
     target_compile_options(RingBufferBench PRIVATE ${AUDIOVIS_WARNINGS})
     # msvc flags sscanf as "unsafe" and wants its own sscanf_s, plain sscanf is fine for parsing --cpus
