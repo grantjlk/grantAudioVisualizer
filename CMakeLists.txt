@@ -57,6 +57,15 @@ if(AUDIOVIS_BUILD_APP)
     )
 endif()
 
+# ring buffer throughput benchmark, no vcpkg libraries needed either
+option(AUDIOVIS_BUILD_BENCH "Build the ring buffer benchmark" ON)
+if(AUDIOVIS_BUILD_BENCH)
+    find_package(Threads REQUIRED)
+    add_executable(RingBufferBench bench/RingBufferBench.cpp)
+    target_include_directories(RingBufferBench PRIVATE include)
+    target_link_libraries(RingBufferBench PRIVATE pa_ringbuffer Threads::Threads)
+endif()
+
 # outside the app block since the ring buffer tests don't need any vcpkg libraries
 option(AUDIOVIS_BUILD_TESTS "Build the unit tests (downloads GoogleTest)" ON)
 if(AUDIOVIS_BUILD_TESTS)

@@ -101,6 +101,12 @@ Unit tests use GoogleTest (downloaded automatically by CMake) and cover the ring
 ctest -C Release
 ```
 
+There's also a ring buffer throughput benchmark comparing PortAudio's ring buffer with the custom one (run it plugged in, takes about a minute):
+
+```bash
+Release\RingBufferBench.exe
+```
+
 ## Usage
 
 1. Launch the application
