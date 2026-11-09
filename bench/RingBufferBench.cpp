@@ -40,7 +40,7 @@ struct ChunkConfig{
 	uint64_t samplesPerRun;		// sized so one run takes roughly 0.2 - 2 s
 };
 constexpr ChunkConfig kChunks[] = {
-	{1, 20'000'000},
+	{1, 100'000'000},
 	{512, 400'000'000},
 };
 
