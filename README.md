@@ -178,7 +178,18 @@ Each second the console prints a `[Perf]` line, and a run summary with p50/p99/p
 - [ ] Audio effects (equalizer, reverb)
 - [ ] Export visualization as video
 
-<!-- TODO: short note on how AI tools were used in this project goes here -->
+## How AI Was Used
+
+I built the original visualizer on my own: the architecture, the PortAudio/FFTW/OpenGL integration, instanced rendering, and the FFT analyzer. For the later performance and concurrency work I used Claude as a collaborator, and this is how the work split.
+
+**Mine**
+- The `SpscRingBuffer`, including the acquire/release ordering and the cached-index and padding changes
+- Finding and fixing the analyzer race: it was reading the playback buffer from a third thread and showing audio before it was heard, so I had the audio callback publish what it just played through its own SPSC buffer
+- The direction: measuring performance in the first place, reporting percentiles instead of averages, and benchmarking against PortAudio and Rigtorp
+- Running and judging the perf runs and the stress and drag tests
+
+**Written by AI from my direction**
+- The performance instrumentation, the CMake restructuring, and the GoogleTest suite
 
 ## Author
 
