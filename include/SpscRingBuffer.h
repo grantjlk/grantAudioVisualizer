@@ -51,9 +51,11 @@ class SpscRingBuffer{
 		/// @param count Number of elements to attempt writing
 		/// @return Number of elements actually written (less than count if the buffer filled up)
 		size_t write(const T* data, size_t count){
-			// v1: plain load()/store() are seq_cst by default, the strongest (and slowest) ordering
-			size_t write = writeIndex.load();
-			size_t read = readIndex.load();
+			// relaxed: only this thread ever stores writeIndex, so it already knows the latest value
+			size_t write = writeIndex.load(std::memory_order_relaxed);
+			// acquire: pairs with the consumer's release store of readIndex, so once we see a slot as
+			// free, the consumer is guaranteed to be done copying out of it
+			size_t read = readIndex.load(std::memory_order_acquire);
 
 			count = std::min(count, capacity - (write - read));
 
@@ -63,8 +65,10 @@ class SpscRingBuffer{
 			std::copy(data, data + firstPart, buffer.data() + start);
 			std::copy(data + firstPart, data + count, buffer.data());
 
-			// publish after the copy, so the consumer never sees the new index before the data is there
-			writeIndex.store(write + count);
+			// release: everything written before this (the copy) is visible to whoever acquires the new
+			// index, so the consumer never sees the new index before the data is there. on x86 this is a
+			// plain mov, where v1's default seq_cst store was an xchg (a full fence) on every call
+			writeIndex.store(write + count, std::memory_order_release);
 			return count;
 		}
 
@@ -73,8 +77,10 @@ class SpscRingBuffer{
 		/// @param count Number of elements requested
 		/// @return Number of elements actually read (less than count if the buffer ran out)
 		size_t read(T* output, size_t count){
-			size_t read = readIndex.load();
-			size_t write = writeIndex.load();
+			// same idea mirrored: our own index is relaxed, the producer's is acquire (pairs with its
+			// release), so the data it copied in is guaranteed visible before we read it
+			size_t read = readIndex.load(std::memory_order_relaxed);
+			size_t write = writeIndex.load(std::memory_order_acquire);
 
 			count = std::min(count, write - read);
 
@@ -83,19 +89,20 @@ class SpscRingBuffer{
 			std::copy(buffer.data() + start, buffer.data() + start + firstPart, output);
 			std::copy(buffer.data(), buffer.data() + (count - firstPart), output + firstPart);
 
-			// free the slots only after copying out, so the producer can't overwrite them mid copy
-			readIndex.store(read + count);
+			// release: the copy out finishes before the slots show up as free, so the producer can't
+			// overwrite them mid copy
+			readIndex.store(read + count, std::memory_order_release);
 			return count;
 		}
 
 		/// @brief Elements ready to read. Exact on the consumer thread, a lower bound on others
 		size_t readAvailable() const{
-			return writeIndex.load() - readIndex.load();
+			return writeIndex.load(std::memory_order_acquire) - readIndex.load(std::memory_order_acquire);
 		}
 
 		/// @brief Free slots to write into. Exact on the producer thread, a lower bound on others
 		size_t writeAvailable() const{
-			return capacity - (writeIndex.load() - readIndex.load());
+			return capacity - (writeIndex.load(std::memory_order_acquire) - readIndex.load(std::memory_order_acquire));
 		}
 
 		/// @brief Total number of slots
