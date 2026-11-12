@@ -99,7 +99,8 @@ int main(int argc, char* argv[]) {
 
     // 7. Background audio-fill thread
     // fillBuffer used to run in the main loop, but that blocks during window drag/resize,
-    // and the ring buffer only holds ~46ms of audio, so it'd glitch. runs on its own thread now.
+    // and the ring buffer only holds ~93ms of audio (8192 interleaved stereo samples), so it'd glitch.
+    // runs on its own thread now.
     std::atomic<bool> audioFileEnded{false};
     std::atomic<bool> stopFillThread{false};
     std::atomic<long long> fillTimeNs{0};

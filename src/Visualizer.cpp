@@ -90,6 +90,7 @@ bool Visualizer::setupWindow(){
 	// set resize callback (needed because of c style function)
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwSetKeyCallback(window, keyCallback);
 
     return true;
 }
@@ -216,6 +217,14 @@ void Visualizer::framebufferSizeCallback(GLFWwindow* window, int width, int heig
     }
 }
 
+// glfwGetKey is main thread only, but shouldClose() gets called from the render thread too,
+// so check ESC here instead (glfw runs callbacks on the main thread while it processes events)
+void Visualizer::keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/){
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
+}
+
 bool Visualizer::initialize(){
 	return setupWindow();
 }
@@ -258,11 +267,7 @@ void Visualizer::swapBuffers(){
 
 bool Visualizer::shouldClose() const{
     if (!window) return true;
-    
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        return true;
-    }
-    
+    // safe from any thread, unlike glfwGetKey
     return glfwWindowShouldClose(window);
 }
 

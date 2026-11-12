@@ -41,6 +41,8 @@ class Visualizer{
 		// GLFW callback for window resizing - just stores the new size, no GL calls
 		// (render() applies it via glViewport on the render thread each frame)
 		static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+		// GLFW callback for key presses, closes the window on ESC (runs on the main thread)
+		static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	public:
 		//initializes window dimensions and bar count
 		Visualizer(int width = 800, int height = 600, int numBars = 32);
