@@ -66,7 +66,7 @@ Visualizer::~Visualizer(){
     glfwTerminate();
 }
 
-// rteurns true if successfully setup window, false if not.
+// returns true if successfully setup window, false if not.
 bool Visualizer::setupWindow(){
 	// initialize GLFW
     if (!glfwInit()) {
@@ -217,8 +217,8 @@ void Visualizer::framebufferSizeCallback(GLFWwindow* window, int width, int heig
     }
 }
 
-// glfwGetKey is main thread only, but shouldClose() gets called from the render thread too,
-// so check ESC here instead (glfw runs callbacks on the main thread while it processes events)
+// glfwGetKey is main thread only, so check ESC here instead of polling it
+// (glfw runs callbacks on the main thread while it processes events)
 void Visualizer::keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/){
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, GLFW_TRUE);

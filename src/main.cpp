@@ -167,7 +167,8 @@ int main(int argc, char* argv[]) {
 
         std::cout << std::fixed << std::setprecision(3);
 
-        while (!visualizer.shouldClose() && output.isActive() && !quitRequested.load(std::memory_order_relaxed)) {
+        // main checks shouldClose and sets quitRequested, glfw doesn't synchronize that flag so we don't read it here
+        while (output.isActive() && !quitRequested.load(std::memory_order_relaxed)) {
             // frame time = start of last frame to start of this one, so it includes everything (vsync wait too)
             auto frameStart = std::chrono::steady_clock::now();
             if (!firstFrame) {
