@@ -28,7 +28,7 @@ class AudioBuffer{
 		AudioBuffer(int bufferSizeInSamples, const AudioLoader& loader);
 
 
-		/// @brief Fill the buffer with audio samples from the source data, typically called by main thread to keep buffer filled during audio playback
+		/// @brief Fill the buffer with audio samples from the source data, typically called by the fill thread to keep buffer filled during audio playback
 		/// @param samplesToWrite Number of samples to attempt writing into the ring buffer
 		/// @return False if the end of the source file has been reached, true otherwise
 		bool fillBuffer(int samplesToWrite);

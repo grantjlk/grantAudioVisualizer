@@ -30,7 +30,7 @@ class Visualizer{
 		float smoothingFactor;
 		// Creates the GLFW window (main thread only, no GL calls)
 		bool setupWindow();
-		// compiiles shader from source code
+		// compiles shader from source code
 		GLuint _compileShader(const char* source, GLenum type);
 		// Links vertex and fragment shaders into a program
 		GLuint _createShaderProgram(GLuint vertexShader, GLuint fragmentShader);

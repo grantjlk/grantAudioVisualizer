@@ -20,7 +20,7 @@
 // (a float can't count past 16.7M without skipping), so the consumer can check every value
 using Sample = uint32_t;
 
-/// @brief PortAudio's PaUtilRingBuffer, what the app uses between the fill thread and the audio callback
+/// @brief PortAudio's PaUtilRingBuffer, what the app used to use between the fill thread and the audio callback
 struct PaUtilAdapter{
 	static constexpr const char* name = "paUtil";
 	static constexpr bool bulk = true;

@@ -81,7 +81,7 @@ I also ran ThreadSanitizer (GCC in WSL2). My buffer (v2 and v3) and rigtorp's ca
 - There's one warm-up run that isn't counted, then 15 runs per buffer. The buffers take turns (paUtil, spsc, rigtorp, paUtil, ...) so if the CPU speeds up or slows down partway through, it affects all of them about the same.
 - I report the median instead of the average so one bad run doesn't throw it off. At chunk 1 a single run sometimes drops way lower, but the medians still land within a few percent between invocations.
 - Both threads wait on a start flag once they're pinned, the consumer times itself, and the benchmark's own flags are on a separate cache line so they don't add false sharing of their own.
-- PaUtil isn't the same baseline on every platform. On MSVC its barriers are compiler-only, which on x86 is basically acquire/release for free. With GCC on x86 they're real `mfence`/`lfence`/`sfence` instructions, so I'd expect it to be slower there.
+- PaUtil isn't the same baseline on every platform. On MSVC its barriers are compiler-only, which on x86 is basically acquire/release for free. With GCC they're all `__sync_synchronize()`, which is a real full barrier, so I'd expect it to be slower there.
 
 ### Running it yourself
 

@@ -3,7 +3,7 @@
 #include "AudioBuffer.h"
 #include "TestHelpers.h"
 
-// small power of two, portaudio's ring buffer only accepts power of two sizes
+// small power of two, the ring buffer only accepts power of two sizes
 constexpr int kBufferSize = 16;
 
 TEST(AudioBufferTest, ReadsBackWhatWasFilledInOrder){
