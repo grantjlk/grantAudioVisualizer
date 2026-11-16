@@ -129,24 +129,50 @@ void AudioAnalyzer::_convertOutputToMagnitudes(){
 	}
 }
 
-// Setup frequency bucket ranges (currently hardcoded for 32 buckets, 20Hz–16kHz)
-// In future, change this so we can choose buckets?
+// Setup log spaced frequency bucket ranges from lowFreq to highFreq
 void AudioAnalyzer::_setupBuckets(){
-	numBuckets = 32;
-	//hardcoded using logarithmic scaling
-	bucketRanges = {{0,0},{0,0},{0,0},{0,1},{1,1},{1,1},{1,1},{1,2},{2,3},{3,3},{3,4},{4,5},{5,7},{7,8},{8,10},{10,13},{13,16},{16,19},{19,24},{24,30},{30,37},{37,45},{45,56},{56,69},{69,86},{86,106},{106,130},{130,161},{161,198},{198,244},{244,301},{301,371}};
+	int maxBin = fftSize / 2;
+	float binsPerHz = static_cast<float>(fftSize) / sampleRate;
+	// Can't go above half the sample rate, the fft has no bins up there
+	float top = std::min(highFreq, sampleRate / 2.0f);
+	float ratio = top / lowFreq;
+
+	bucketRanges.resize(numBuckets);
+	bucketCenters.resize(numBuckets);
+	for(int i = 0; i < numBuckets; i++){
+		// Bucket edges and center as bin positions (can be fractional, like bin 4.2)
+		float lowPos = lowFreq * powf(ratio, static_cast<float>(i) / numBuckets) * binsPerHz;
+		float highPos = lowFreq * powf(ratio, static_cast<float>(i + 1) / numBuckets) * binsPerHz;
+		float centerPos = lowFreq * powf(ratio, (i + 0.5f) / numBuckets) * binsPerHz;
+
+		// The bins that land inside this bucket. The low buckets are narrower than one fft bin (~43 Hz),
+		// so this can come out empty (end < start), _computeBuckets handles that
+		int startBin = static_cast<int>(ceilf(lowPos));
+		int endBin = static_cast<int>(ceilf(highPos)) - 1;
+		bucketRanges[i] = {startBin, std::min(endBin, maxBin)};
+		bucketCenters[i] = std::min(centerPos, static_cast<float>(maxBin));
+	}
 
 	visualizationBuckets.resize(numBuckets);
 }
 
 // Collapse FFT magnitudes into log spaced buckets
 void AudioAnalyzer::_computeBuckets(){
-	// Compute average magnitude in each range of bins, then set corresponding bucket to that average
 	for(int i = 0; i < numBuckets; i ++){
 		float sum = 0.0f;
 		int startBin = bucketRanges[i].first;
 		int endBin = bucketRanges[i].second;
 
+		// Not even two bins in this bucket, so blend between the two bins around its center
+		// (otherwise a few bars in a row would just show the same bin)
+		if(endBin <= startBin){
+			int lowBin = std::min(static_cast<int>(bucketCenters[i]), fftSize / 2 - 1);
+			float t = bucketCenters[i] - lowBin;
+			visualizationBuckets[i] = magnitudeSpectrum[lowBin] * (1.0f - t) + magnitudeSpectrum[lowBin + 1] * t;
+			continue;
+		}
+
+		// Compute average magnitude in the range of bins, then set corresponding bucket to that average
 		for(int j = startBin; j <= endBin; j++){
 			sum += magnitudeSpectrum[j];
 		}

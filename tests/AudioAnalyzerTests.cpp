@@ -87,8 +87,8 @@ TEST(AudioAnalyzerTest, WindowSlidesForward){
 	EXPECT_NEAR(analyzer.getPeakAmplitude(), 0.5f, 1e-2f);
 }
 
-// bin 27 (~1163 Hz) is only in bucket 19 (bins 24-30), and bin 100 (~4307 Hz) is only in
-// bucket 25 (bins 86-106). picked away from bucket edges since neighbouring buckets share edge bins
+// bin 27 (~1163 Hz) is in bucket 19 (bins 25-30), and bin 100 (~4307 Hz) is in bucket 25 (bins 87-106).
+// bins 4 and 10 are down where the buckets are only a bin or two wide (bucket 10 blends around bin 4, bucket 14 is bins 9-10)
 struct SineCase{
 	int bin;
 	int expectedBucket;
@@ -117,6 +117,6 @@ TEST_P(AudioAnalyzerSineTest, SineLandsInExpectedBucket){
 }
 
 INSTANTIATE_TEST_SUITE_P(KnownFrequencies, AudioAnalyzerSineTest,
-	::testing::Values(SineCase{27, 19}, SineCase{100, 25}),
+	::testing::Values(SineCase{4, 10}, SineCase{10, 14}, SineCase{27, 19}, SineCase{100, 25}),
 	// names the tests eg. "Bin27" instead of a hex dump of the struct
 	[](const ::testing::TestParamInfo<SineCase>& info){ return "Bin" + std::to_string(info.param.bin); });

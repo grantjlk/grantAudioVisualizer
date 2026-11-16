@@ -24,9 +24,9 @@ class AudioAnalyzer{
 		size_t samplesReceived;				///< Total samples received, to know when the window has filled up the first time
 
 		int sampleRate;						///< Sample rate of audio data
-		int numBuckets;						///< Number of frequency buckets for visualization (locked at 32 right now)
-		float lowFreq;						///< Lowest freq to analyze (locked at 20 right now)
-		float highFreq;						///< Highest freq to analyze (locked at 16k right now)
+		int numBuckets;						///< Number of frequency buckets for visualization
+		float lowFreq;						///< Lowest freq to analyze
+		float highFreq;						///< Highest freq to analyze
 
 		// FFT setup
 		int fftSize;						///< Number of samples to analyze
@@ -38,6 +38,7 @@ class AudioAnalyzer{
 		// Analysis results (fft bins for freqs, rms val(loudness), peak amplitude value)
 		std::vector<float> magnitudeSpectrum;	///< Magnitude spectrum from FFT (frequency bin amplitudes)
 		std::vector<std::pair<int, int>> bucketRanges;	///< Start and end bin indices for each visualization bucket
+		std::vector<float> bucketCenters;		///< Center of each bucket as a (fractional) bin position, for buckets narrower than a bin
 		std::vector<float> visualizationBuckets;	///< Logarithmically spaced frequency buckets for visualization
 		float rmsVal;						///< Root mean square of current analysis block (measures loudness)
 		float peakAmplitude;				///< Peak amplitude in current analysis block
@@ -65,9 +66,9 @@ class AudioAnalyzer{
 		/// @param playedAudio Ring buffer AudioOutput writes the played (mono) audio into
 		/// @param fftSize Number of samples per FFT
 		/// @param sampleRate Audio sample rate, input from AudioLoader's sample rate
-		/// @param numBuckets Number of visualization buckets (only 32 works right now)
-		/// @param lowFreq Lower frequency bound for bucket grouping (only 20 works right now)
-		/// @param highFreq Higher frequency bound for bucket grouping (only 16k works right now)
+		/// @param numBuckets Number of visualization buckets (the Visualizer's shader only takes 32 right now)
+		/// @param lowFreq Lower frequency bound for bucket grouping
+		/// @param highFreq Higher frequency bound for bucket grouping
 		AudioAnalyzer(SpscRingBuffer<float>* playedAudio, int fftSize, int sampleRate, int numBuckets = 32, float lowFreq = 20.0f, float highFreq = 16000.0f);
 
 		/// @brief Cleans up FFTW resources
